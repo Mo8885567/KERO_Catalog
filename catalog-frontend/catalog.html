@@ -3427,12 +3427,9 @@
     <!-- ═══════════════════════════════════════════════════════════
          API Client — يستبدل google.script.run بـ fetch()
          ═══════════════════════════════════════════════════════════ -->
-    <script>
-      // رابط نشر الـ Apps Script — مثبت هنا عشان يشتغل لأي حد يفتح
-      // اللينك من غير ما يحتاج يعمل "إعداد اتصال" بنفسه على جهازه
-      window.GAS_URL =
-        "https://script.google.com/macros/s/AKfycbwX2P9V9xyw-0u58666HcB2Uq_b5vsjezW2uPI0TgMYGIWysUoEwrGs_1F3qZCCl1baAw/exec";
-    </script>
+    <!-- رابط الـ GAS بقى في مصدر واحد فقط: src/config.js (شوف الملف ده لو
+         محتاج تغيّر الرابط أو فيه مشكلة اتصال بالسيرفر) -->
+    <script src="src/config.js"></script>
     <script src="src/api/client.js"></script>
 
     <!-- ===== HEADER ===== -->

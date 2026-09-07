@@ -7,8 +7,9 @@ const STATIC_CACHE = `${CACHE_VERSION}-static`;
 
 // أهم الملفات اللي المفروض تتخزن من أول ما الموقع يتفتح
 const PRECACHE_URLS = [
-  "index.html",
-  "catalog.html",
+  "/",
+  "/admin",
+  "/catalog",
   "manifest.json",
   "manifest-admin.json",
   "assets/logo/favicon-32.png",
@@ -22,7 +23,15 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(STATIC_CACHE)
-      .then((cache) => cache.addAll(PRECACHE_URLS))
+      .then((cache) =>
+        Promise.allSettled(
+          PRECACHE_URLS.map((url) =>
+            cache.add(url).catch((err) => {
+              console.warn("Precache skipped for", url, err);
+            })
+          )
+        )
+      )
       .then(() => self.skipWaiting())
   );
 });

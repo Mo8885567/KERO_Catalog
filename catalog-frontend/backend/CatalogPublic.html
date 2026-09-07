@@ -5970,5 +5970,51 @@
         console.error("Uncaught error:", e.error || e.message);
       });
     </script>
+    <!--
+      دعم الإيموجي على الأجهزة/الويندوز القديم:
+      ويندوز 7 (وبعض المتصفحات القديمة) معندهاش خط الإيموجي الملون
+      (Segoe UI Emoji) اللي اتضاف بس من ويندوز 8.1، فبتظهر الإيموجي
+      كمربع فاضي (tofu). الحل هنا: مكتبة Twemoji بتستبدل رموز
+      الإيموجي في النص بصور SVG بتتحمل من الـ CDN، فتظهر بنفس
+      الشكل على أي جهاز مهما كان قديم، وبدون ما نغيّر أي كود تاني.
+    -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/twemoji@14.0.2/dist/twemoji.min.js"
+      crossorigin="anonymous"
+      defer
+    ></script>
+    <script>
+      (function () {
+        function runTwemoji() {
+          if (window.twemoji && document.body) {
+            try {
+              window.twemoji.parse(document.body, {
+                folder: "svg",
+                ext: ".svg",
+              });
+            } catch (e) {
+              /* لو فشلت (مثلاً مفيش نت) سيبها، النص العادي هيفضل شغال */
+            }
+          }
+        }
+
+        window.addEventListener("load", function () {
+          runTwemoji();
+
+          if ("MutationObserver" in window) {
+            var pending = null;
+            var observer = new MutationObserver(function () {
+              if (pending) clearTimeout(pending);
+              pending = setTimeout(runTwemoji, 250);
+            });
+            observer.observe(document.body, {
+              childList: true,
+              subtree: true,
+              characterData: true,
+            });
+          }
+        });
+      })();
+    </script>
   </body>
 </html>

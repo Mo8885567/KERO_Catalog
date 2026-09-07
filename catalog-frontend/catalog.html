@@ -22,6 +22,12 @@
     />
     <link rel="shortcut icon" href="assets/logo/favicon-32.png" />
     <link rel="apple-touch-icon" href="assets/logo/favicon-192.png" />
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#1a56db" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="كيرو مان" />
     <meta name="description" content="كتالوج المنتجات الرسمي — Kero Man" />
     <link href="assets/fonts/fonts.css" rel="stylesheet" />
     <!-- ═══════════════════════════════════════════════════════
@@ -4052,6 +4058,9 @@
         _bindSearch();
 
         if (_URL_LINK_TOKEN) {
+          // نداء واحد بس بيحل التوكن ويجيب بيانات الكتالوج مع بعض
+          // (بدل نداءين متتاليين لـ Google كان بيضاعف زمن التحميل الأول
+          // لكل رابط ?link= جديد) — راجع resolveLinkedCatalogFull في Code.gs
           google.script.run
             .withSuccessHandler(function (res) {
               if (!res || !res.success) {
@@ -4062,20 +4071,18 @@
                   "</div></div>";
                 return;
               }
-              _URL_GROUPS = String(res.groups || "");
-              _URL_WH = String(res.wh || "");
-              _URL_NOPRICES = _flagClient(res.noprices);
-              _URL_SHOWZERO = _flagClient(res.showzero);
-              _URL_NOQTY = _flagClient(res.noqty);
-              _URL_CLIENT = String(res.client || "");
+              var meta = res.linkMeta || {};
+              _URL_GROUPS = String(meta.groups || "");
+              _URL_WH = String(meta.wh || "");
+              _URL_NOPRICES = _flagClient(meta.noprices);
+              _URL_SHOWZERO = _flagClient(meta.showzero);
+              _URL_NOQTY = _flagClient(meta.noqty);
+              _URL_CLIENT = String(meta.client || "");
               _setWhatsAppBtn();
-              google.script.run
-                .withSuccessHandler(_onDataLoaded)
-                .withFailureHandler(_onError)
-                .getCatalogPublicData(_URL_GROUPS, _URL_WH);
+              _onDataLoaded(res);
             })
             .withFailureHandler(_onError)
-            .resolveLinkedCatalog(_URL_LINK_TOKEN);
+            .resolveLinkedCatalogFull(_URL_LINK_TOKEN);
           return;
         }
 
@@ -4248,9 +4255,17 @@
         var el = document.getElementById("pub-content");
         el.style.display = "";
         el.innerHTML =
-          '<div class="error-wrap"><div style="font-size:40px;margin-bottom:12px">⚠️</div><p style="font-weight:700;font-size:16px;margin-bottom:6px">حدث خطأ</p><p style="font-size:13px">' +
+          '<div class="error-wrap"><div style="font-size:40px;margin-bottom:12px">⚠️</div><p style="font-weight:700;font-size:16px;margin-bottom:6px">حدث خطأ</p><p style="font-size:13px;margin-bottom:14px">' +
           _esc(msg) +
-          "</p></div>";
+          '</p><button type="button" id="pub-retry-btn" style="background:#2563eb;color:#fff;border:none;border-radius:10px;padding:9px 22px;font-size:13px;font-weight:700;cursor:pointer">إعادة المحاولة</button></div>';
+        var retryBtn = document.getElementById("pub-retry-btn");
+        if (retryBtn) {
+          retryBtn.addEventListener("click", function () {
+            document.getElementById("pub-loading").style.display = "";
+            el.style.display = "none";
+            _bootCatalog();
+          });
+        }
       }
 
       // ── Stats ────────────────────────────────────────────────────
@@ -6225,6 +6240,15 @@
       window.addEventListener("error", function (e) {
         console.error("Uncaught error:", e.error || e.message);
       });
+    </script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function () {
+          navigator.serviceWorker.register("sw.js").catch(function (err) {
+            console.warn("Service worker registration failed:", err);
+          });
+        });
+      }
     </script>
   </body>
 </html>

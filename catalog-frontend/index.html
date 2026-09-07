@@ -8,6 +8,12 @@
     <link rel="icon" type="image/png" sizes="192x192" href="assets/logo/favicon-192.png" />
     <link rel="shortcut icon" href="assets/logo/favicon-32.png" />
     <link rel="apple-touch-icon" href="assets/logo/favicon-192.png" />
+    <link rel="manifest" href="manifest-admin.json" />
+    <meta name="theme-color" content="#1a56db" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="إدارة الكتالوج" />
     <link
       href="assets/fonts/fonts.css"
       rel="stylesheet"
@@ -2389,6 +2395,15 @@
           if (e.target === ov) ov.classList.remove("show");
         });
       });
+    </script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function () {
+          navigator.serviceWorker.register("sw.js").catch(function (err) {
+            console.warn("Service worker registration failed:", err);
+          });
+        });
+      }
     </script>
   </body>
 </html>

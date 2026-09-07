@@ -76,6 +76,7 @@ function doGet(e) {
 // ============================================================
 var _ALLOWED_REMOTE_FNS = [
   'getCatalogPublicData', 'logPublicCatalogWhatsapp', 'resolveLinkedCatalog',
+  'resolveLinkedCatalogFull',
   'adminLogin', 'adminGetData',
   'adminSaveItem', 'adminDeleteItem',
   'adminSaveGroup', 'adminDeleteGroup',
@@ -110,36 +111,91 @@ function ping() {
   return { success: true, time: new Date().toISOString() };
 }
 
+// ── كاش نتيجة فحص روابط الكتالوج (resolveLinkedCatalog) — بيمنع قراءة
+//    تاب Links بالكامل في كل مرة حد يفتح نفس اللينك (كان بيحصل قبل كده
+//    مع كل فتح صفحة، وده كان أحد أسباب بطء التحميل). أي تفعيل/إيقاف/حذف
+//    لرابط من شاشة الإدارة بيمسح الكاش بتاعه فورًا عشان التغيير يظهر
+//    فورًا من غير ما نستنى انتهاء الصلاحية ──────────────────────────
+var _LINK_CACHE_TTL_SEC = 300; // 5 دقايق
+function _linkCacheKey(token) {
+  return 'linkdata_' + String(token || '');
+}
+function _clearLinkCache(token) {
+  try {
+    if (token) CacheService.getScriptCache().remove(_linkCacheKey(token));
+  } catch (e) {
+    /* صامت — الكاش تحسين أداء مش وظيفة أساسية */
+  }
+}
+
 // ── نسخة قابلة للاستدعاء عن بُعد من _renderLinkedCatalog: بترجع
 //    فلاتر الرابط (JSON) بدل ما ترندر صفحة HTML من السيرفر، عشان
 //    catalog.html (الفرونت الثابت على Netlify) يقدر يطبقها بنفسه ──
 function resolveLinkedCatalog(token) {
   try {
+    var cache = CacheService.getScriptCache();
+    var cacheKey = _linkCacheKey(token);
+    try {
+      var cached = cache.get(cacheKey);
+      if (cached) return JSON.parse(cached);
+    } catch (eCache) {
+      /* صامت — أي مشكلة في الكاش نكمل بقراءة الشيت عادي */
+    }
+
     var link = _findLinkByToken(token);
+    var result;
     if (!link) {
-      return { success: false, message: 'الرابط غير صحيح، اتمسح، أو حصلت فيه مشكلة.' };
+      result = { success: false, message: 'الرابط غير صحيح، اتمسح، أو حصلت فيه مشكلة.' };
+    } else if (String(link.active).toLowerCase() === 'false') {
+      result = { success: false, message: 'تم إيقاف هذا الرابط من شاشة الإدارة.' };
+    } else if (link.expires_at && !isNaN(new Date(link.expires_at).getTime()) && new Date(link.expires_at).getTime() < Date.now()) {
+      result = { success: false, message: 'انتهت صلاحية هذا الرابط.' };
+    } else {
+      result = {
+        success: true,
+        groups: String(link.groups || ''),
+        wh: String(link.wh || ''),
+        noprices: link.noprices,
+        showzero: link.showzero,
+        noqty: link.noqty,
+        client: String(link.client || ''),
+      };
     }
-    if (String(link.active).toLowerCase() === 'false') {
-      return { success: false, message: 'تم إيقاف هذا الرابط من شاشة الإدارة.' };
+
+    try {
+      cache.put(cacheKey, JSON.stringify(result), _LINK_CACHE_TTL_SEC);
+    } catch (ePut) {
+      /* صامت */
     }
-    if (link.expires_at) {
-      var exp = new Date(link.expires_at);
-      if (!isNaN(exp.getTime()) && exp.getTime() < Date.now()) {
-        return { success: false, message: 'انتهت صلاحية هذا الرابط.' };
-      }
-    }
-    return {
-      success: true,
-      groups: String(link.groups || ''),
-      wh: String(link.wh || ''),
-      noprices: link.noprices,
-      showzero: link.showzero,
-      noqty: link.noqty,
-      client: String(link.client || ''),
-    };
+    return result;
   } catch (err) {
     return { success: false, message: err.message };
   }
+}
+
+// ── نسخة مدمجة من resolveLinkedCatalog + getCatalogPublicData: بترجع بيانات
+//    الكتالوج كاملة من نداء واحد بس بدل نداءين متتاليين (كان catalog.html
+//    بيستنى resolveLinkedCatalog يخلص، وبعدين يبعت getCatalogPublicData —
+//    وده كان بيضاعف عدد الرحلات لـ Google في كل مرة حد يفتح رابط ?link=،
+//    وده كان من أكبر أسباب بطء وعدم انتظام تحميل الكتالوجات المرتبطة
+//    بروابط). بتستخدم نفس الكاش بتاع الدالتين تحت من غير ما تكرر أي منطق ──
+function resolveLinkedCatalogFull(token) {
+  var linkResult = resolveLinkedCatalog(token);
+  if (!linkResult || !linkResult.success) {
+    return linkResult; // { success:false, message: ... }
+  }
+  var catalogResult = getCatalogPublicData(linkResult.groups, linkResult.wh);
+  if (catalogResult && catalogResult.success) {
+    catalogResult.linkMeta = {
+      noprices: linkResult.noprices,
+      showzero: linkResult.showzero,
+      noqty: linkResult.noqty,
+      client: linkResult.client,
+      groups: linkResult.groups,
+      wh: linkResult.wh,
+    };
+  }
+  return catalogResult;
 }
 
 // ── يحوّل أي قيمة (نص/رقم/بوليان) جاية من الشيت لـ true/false بشكل موثوق.
@@ -490,15 +546,19 @@ function adminSaveItem(password, item) {
           if (String(values[i][idIdx]) === String(item.id)) { rowIdx = i; break; }
         }
         if (rowIdx === -1) throw new Error('الصنف مش موجود');
-        headers.forEach(function (h, colIdx) {
-          if (h === 'id') return;
+        // ⚡ بنبني صف القيم الجديد كامل ونكتبه بنداء setValues() واحد بدل
+        // ما نعمل نداء setValue() منفصل لكل عمود على حدة (كان بيبطّئ الحفظ
+        // بشكل ملحوظ كل ما زاد عدد أعمدة الشيت — كل نداء منفصل له تكلفة
+        // شبكة/API مستقلة، فحفظ صنف بـ 15 عمود كان معناه 15 رحلة بدل رحلة وحدة)
+        var existingRow = values[rowIdx];
+        var updatedRow = headers.map(function (h, colIdx) {
+          if (h === 'id') return existingRow[colIdx];
           var matchedKey = _matchKey(h);
-          if (matchedKey !== null) {
-            sh.getRange(rowIdx + 1, colIdx + 1).setValue(item[matchedKey]);
-          } else {
-            Logger.log('adminSaveItem: لا يوجد مطابقة لعمود الشيت "' + h + '" في الـ payload المرسل من الفرونت');
-          }
+          if (matchedKey !== null) return item[matchedKey];
+          Logger.log('adminSaveItem: لا يوجد مطابقة لعمود الشيت "' + h + '" في الـ payload المرسل من الفرونت');
+          return existingRow[colIdx];
         });
+        sh.getRange(rowIdx + 1, 1, 1, headers.length).setValues([updatedRow]);
         return { success: true, id: item.id };
       } else {
         // إنشاء صنف جديد
@@ -568,12 +628,13 @@ function adminSaveGroup(password, group) {
           if (String(values[i][idIdx]) === String(group.id)) { rowIdx = i; break; }
         }
         if (rowIdx === -1) throw new Error('المجموعة مش موجودة');
-        headers.forEach(function (h, colIdx) {
-          if (h === 'id') return;
-          if (group.hasOwnProperty(h)) {
-            sh.getRange(rowIdx + 1, colIdx + 1).setValue(group[h]);
-          }
+        // ⚡ نفس تحسين adminSaveItem: كتابة الصف كامل بنداء واحد بدل عمود عمود
+        var existingRow = values[rowIdx];
+        var updatedRow = headers.map(function (h, colIdx) {
+          if (h === 'id') return existingRow[colIdx];
+          return group.hasOwnProperty(h) ? group[h] : existingRow[colIdx];
         });
+        sh.getRange(rowIdx + 1, 1, 1, headers.length).setValues([updatedRow]);
         return { success: true, id: group.id };
       } else {
         var newId = Utilities.getUuid();
@@ -879,10 +940,12 @@ function adminSetLinkActive(password, id, active) {
       var values = sh.getDataRange().getValues();
       var headers = values[0].map(function (h) { return String(h).trim(); });
       var idIdx = headers.indexOf('id');
+      var tokenIdx = headers.indexOf('token');
       var activeIdx = headers.indexOf('active');
       for (var i = 1; i < values.length; i++) {
         if (String(values[i][idIdx]) === String(id)) {
           sh.getRange(i + 1, activeIdx + 1).setValue(!!active);
+          _clearLinkCache(values[i][tokenIdx]);
           return { success: true };
         }
       }
@@ -906,8 +969,10 @@ function adminDeleteLink(password, id) {
       var values = sh.getDataRange().getValues();
       var headers = values[0].map(function (h) { return String(h).trim(); });
       var idIdx = headers.indexOf('id');
+      var tokenIdx = headers.indexOf('token');
       for (var i = 1; i < values.length; i++) {
         if (String(values[i][idIdx]) === String(id)) {
+          _clearLinkCache(values[i][tokenIdx]);
           sh.deleteRow(i + 1);
           return { success: true };
         }

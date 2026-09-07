@@ -17,7 +17,7 @@
 (function () {
   'use strict';
 
-  // ── قراءة GAS URL ─────────────────────────────────────────────
+  // ── قراءة GAS URL (يُستخدم فقط كـ fallback لو البروكسي مش متاح) ──
   function _getGasUrl() {
     try {
       return window.GAS_URL ||
@@ -28,20 +28,102 @@
     }
   }
 
-  // ── استدعاء Apps Script عبر fetch ─────────────────────────────
-  function _callGAS(fnName, args) {
+  // ── الدوال دي قراءة فقط وآمن نكاشها (لازم تتطابق مع CACHEABLE_FNS
+  //    في api/gas.js) — بتتبعت GET عشان تستفيد من كاش الـ CDN، والباقي
+  //    بيتبعت POST عادي (بدون كاش) ────────────────────────────────
+  var CACHEABLE_FNS = {
+    getCatalogPublicData: true,
+    resolveLinkedCatalog: true,
+    resolveLinkedCatalogFull: true,
+    ping: true,
+  };
+
+  var PROXY_PATH = '/api/gas';
+  var REQUEST_TIMEOUT_MS = 20000;
+  // لو نداء البروكسي رجّع 404 (يعني الفانكشن مش متاحة على المنصة دي —
+  // مثلاً استضافة ثابتة بحتة بدون Serverless Functions) بنوقف نجرب
+  // البروكسي تاني في نفس الجلسة ونرجع مباشرة لنداء Google القديم
+  var _proxyUnavailable = false;
+
+  function _fetchWithTimeout(url, options) {
+    var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    var timer = null;
+    if (controller) {
+      options = Object.assign({}, options, { signal: controller.signal });
+      timer = setTimeout(function () { controller.abort(); }, REQUEST_TIMEOUT_MS);
+    }
+    return fetch(url, options).finally(function () {
+      if (timer) clearTimeout(timer);
+    });
+  }
+
+  // إعادة محاولة مرة واحدة فقط عند أي فشل شبكة/مهلة — بيمتص جزء كبير
+  // من عدم انتظام الاتصال بـ Google من غير ما يعلّق المستخدم كتير
+  function _fetchWithRetry(url, options) {
+    return _fetchWithTimeout(url, options).catch(function () {
+      return _fetchWithTimeout(url, options);
+    });
+  }
+
+  function _parseGasResponse(text, fnName) {
+    if (text && text.trimStart().startsWith('<')) {
+      throw new Error('الخادم أعاد صفحة HTML بدل JSON — تأكد من إعدادات النشر في Apps Script');
+    }
+    var data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      throw new Error('استجابة غير صالحة من السيرفر: ' + text.substring(0, 100));
+    }
+    if (data && typeof data === 'object' && 'error' in data) {
+      throw new Error(data.error);
+    }
+    // Apps Script (وبروكسينا) بيرجّع: { result: <actual_value> }
+    if (data && typeof data === 'object' && 'result' in data) {
+      return data.result;
+    }
+    return data;
+  }
+
+  // ── استدعاء عبر البروكسي على /api/gas (بدون مشاكل CORS، ومع كاش
+  //    CDN للدوال القرائية) ──────────────────────────────────────
+  function _callViaProxy(fnName, args) {
+    var isCacheable = !!CACHEABLE_FNS[fnName];
+    var req;
+    if (isCacheable) {
+      var qs = 'fn=' + encodeURIComponent(fnName) + '&args=' + encodeURIComponent(JSON.stringify(args || []));
+      req = _fetchWithRetry(PROXY_PATH + '?' + qs, { method: 'GET' });
+    } else {
+      req = _fetchWithRetry(PROXY_PATH, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fn: fnName, args: args || [] }),
+      });
+    }
+    return req.then(function (res) {
+      if (res.status === 404) {
+        _proxyUnavailable = true;
+        var e = new Error('proxy-not-found');
+        e._proxyMissing = true;
+        throw e;
+      }
+      return res.text();
+    }).then(function (text) {
+      return _parseGasResponse(text, fnName);
+    });
+  }
+
+  // ── استدعاء مباشر لـ Google (fallback قديم — بيتستخدم بس لو
+  //    البروكسي مش موجود على المنصة اللي الموقع منشور عليها) ──────
+  function _callDirect(fnName, args) {
     var url = _getGasUrl();
     if (!url) {
       return Promise.reject(new Error(
         'GAS_URL غير مضبوطة. انقر على "إعداد الاتصال" في صفحة الدخول.'
       ));
     }
-
-    // Apps Script يقرأ الـ params من query string (GET) أو body (POST)
-    // نستخدم POST مع text/plain لتجنب CORS preflight
     var payload = JSON.stringify({ fn: fnName, args: args || [] });
-
-    return fetch(url, {
+    return _fetchWithRetry(url, {
       method: 'POST',
       mode: 'cors',
       redirect: 'follow',
@@ -55,20 +137,21 @@
       return res.text();
     })
     .then(function (text) {
-      // لو الرد HTML (redirect للوجين من GAS) → خطأ واضح
-      if (text && text.trimStart().startsWith('<')) {
-        throw new Error('الخادم أعاد صفحة HTML بدل JSON — تأكد من إعدادات النشر في Apps Script');
+      return _parseGasResponse(text, fnName);
+    });
+  }
+
+  // ── نقطة الدخول الموحّدة: بتفضّل البروكسي دايمًا (أسرع وأثبت)،
+  //    وبترجع تلقائيًا للنداء المباشر بس لو البروكسي غير متاح ──────
+  function _callGAS(fnName, args) {
+    if (_proxyUnavailable) {
+      return _callDirect(fnName, args);
+    }
+    return _callViaProxy(fnName, args).catch(function (err) {
+      if (err && err._proxyMissing) {
+        return _callDirect(fnName, args);
       }
-      try {
-        var data = JSON.parse(text);
-        // Apps Script يُعيد: { result: <actual_value> } أو مباشرة
-        if (data && typeof data === 'object' && 'result' in data) {
-          return data.result;
-        }
-        return data;
-      } catch (e) {
-        throw new Error('استجابة غير صالحة من السيرفر: ' + text.substring(0, 100));
-      }
+      throw err;
     });
   }
 
@@ -149,6 +232,7 @@
     var KNOWN_FNS = [
       // ── الكتالوج العام (catalog.html) ──
       'getCatalogPublicData', 'logPublicCatalogWhatsapp', 'resolveLinkedCatalog',
+      'resolveLinkedCatalogFull',
       // ── لوحة الإدارة (index.html) ──
       'adminLogin', 'adminGetData',
       'adminSaveItem', 'adminDeleteItem',

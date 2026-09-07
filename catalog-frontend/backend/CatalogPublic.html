@@ -4200,9 +4200,15 @@
         document.getElementById("sf-low-count").textContent = low;
 
         // لما noqty → أخفِ قسم فلتر الحالة في الـ sidebar
-        var statusSection = document.querySelector(
-          ".sidebar-section:has(.status-pills)",
-        );
+        // ملاحظة: تفادينا استخدام :has() في querySelector لأنها بتكسر
+        // على متصفحات قديمة (مثل الأجهزة اللي بتشغل ويندوز 7) بخطأ SyntaxError
+        var statusSection = null;
+        try {
+          var pillsEl = document.querySelector(".status-pills");
+          if (pillsEl) statusSection = pillsEl.closest(".sidebar-section");
+        } catch (e) {
+          statusSection = null;
+        }
         if (!statusSection) {
           // fallback: ابحث عن السيكشن اللي فيه sf-all
           var sfAll = document.getElementById("sf-all");

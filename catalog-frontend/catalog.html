@@ -22,15 +22,15 @@
     />
     <link rel="shortcut icon" href="assets/logo/favicon-32.png" />
     <link rel="apple-touch-icon" href="assets/logo/favicon-192.png" />
-    <link rel="manifest" href="manifest.json" id="pwa-manifest" />
+    <link rel="manifest" href="manifest.json" />
     <script>
       // ═══════════════════════════════════════════════════════
       // حل مشكلة اختفاء ?link=... بعد تثبيت الموقع كـ PWA:
       // 1) لو الصفحة اتفتحت بباراميتر link، بنحفظه في localStorage
       // 2) لو اتفتحت من غير الباراميتر وهي شغالة كتطبيق مثبّت،
       //    بنرجّع آخر لينك محفوظ تلقائي
-      // 3) بنبني manifest.json ديناميكي وقت التحميل بحيث start_url
-      //    فيه نفس اللينك الحالي، عشان أي تثبيت جديد يحفظه صح
+      // (متعملش أي تعديل في الـ manifest نفسه عشان علامة التثبيت
+      //  تفضل شغالة — تبديل الـ manifest بـ blob بيكسرها في كروم)
       // ═══════════════════════════════════════════════════════
       (function () {
         try {
@@ -53,26 +53,8 @@
               var url = new URL(window.location.href);
               url.searchParams.set("link", saved);
               window.location.replace(url.toString());
-              return;
             }
           }
-
-          fetch("manifest.json")
-            .then(function (res) {
-              return res.json();
-            })
-            .then(function (manifest) {
-              manifest.start_url = window.location.pathname + window.location.search;
-              manifest.id = manifest.start_url;
-              var blob = new Blob([JSON.stringify(manifest)], {
-                type: "application/manifest+json",
-              });
-              var blobUrl = URL.createObjectURL(blob);
-              document.getElementById("pwa-manifest").setAttribute("href", blobUrl);
-            })
-            .catch(function (err) {
-              console.warn("PWA dynamic manifest build failed:", err);
-            });
         } catch (e) {
           console.warn("PWA link-param handling failed:", e);
         }

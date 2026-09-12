@@ -129,6 +129,26 @@
         --sidebar-w: 260px;
         --transition: 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 
+        /* ── Spacing scale — كل الـmargin/padding الجديدة بتتطبق من هنا
+           بدل أرقام عشوائية، عشان الإيقاع البصري يكون موحّد في كل الموقع ── */
+        --space-1: 4px;
+        --space-2: 8px;
+        --space-3: 12px;
+        --space-4: 16px;
+        --space-5: 20px;
+        --space-6: 24px;
+        --space-8: 32px;
+        --space-10: 40px;
+
+        /* ── Icon system — مقاس واحد موحّد لكل سياق، بدل ما كل مكان
+           يحدد حجم الأيقونة بنفسه بالـinline style. اختيار المقاس
+           حسب دور الأيقونة (زر صغير، هيدر، سكشن، فيتشر) مش حسب مكانها ── */
+        --icon-xs: 13px; /* أيقونات جوه Badge/نص صغير (حالة، تنبيه) */
+        --icon-sm: 15px; /* أيقونات الأزرار الثانوية وعناصر الفورم */
+        --icon-md: 18px; /* أيقونات الهيدر والأزرار الأساسية */
+        --icon-lg: 24px; /* أيقونات السكاشن (رأس مجموعة، عناوين) */
+        --icon-xl: 32px; /* أيقونات فارغة/تنبيه كبيرة (empty state) */
+
         /* نسخة RGB من --surface عشان نقدر نستخدمها جوه rgba() في
            الخلفيات الشفافة (هيدر، شريط الموبايل، أزرار فوق الصور)
            فتتلوّن صح مع الوضع الليلي بدل ما تفضل بيضاء ثابتة */
@@ -264,6 +284,56 @@
       }
       ::-webkit-scrollbar-thumb:hover {
         background: var(--text3);
+      }
+
+      /* ===== ICON SYSTEM =====
+         نظام موحّد لكل الأيقونات (Tabler Icons) — أي أيقونة وظيفية في
+         الموقع لازم تستخدم <i class="ti ti-*"> + كلاس مقاس من هنا،
+         مش inline font-size عشوائي ولا Emoji ملوّن. الـEmoji بيرندر
+         بحجم غير ثابت بين المتصفحات ومش قابل للتحكم فيه بدقة، عكس
+         خط الأيقونات اللي بيتحكم فيه زي أي نص عادي. */
+      .icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
+        flex-shrink: 0;
+      }
+      .icon-xs {
+        font-size: var(--icon-xs);
+      }
+      .icon-sm {
+        font-size: var(--icon-sm);
+      }
+      .icon-md {
+        font-size: var(--icon-md);
+      }
+      .icon-lg {
+        font-size: var(--icon-lg);
+      }
+      .icon-xl {
+        font-size: var(--icon-xl);
+      }
+      /* حاوية دائرية/مربعة موحّدة لأي أيقونة محتاجة خلفية ملوّنة —
+         نفس فكرة sidebar-icon-badge بس Reusable لأي مكان تاني */
+      .icon-box {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        border-radius: 10px;
+        transition: all var(--transition);
+      }
+      .icon-box-sm {
+        width: 28px;
+        height: 28px;
+        font-size: var(--icon-sm);
+      }
+      .icon-box-md {
+        width: 36px;
+        height: 36px;
+        font-size: var(--icon-md);
+        border-radius: 12px;
       }
 
       /* ===== HEADER ===== */
@@ -1075,6 +1145,18 @@
         font-size: 40px;
         opacity: 0.5;
       }
+      /* الأيقونة جوه الـ::before مش inline <i> — عشان placeholder الصورة
+         المكسورة بيتحقن بـinnerHTML جوه onerror، وسلسلة الاقتباسات
+         المتداخلة (JS جوه HTML attribute جوه JS string) بتبقى هشة جدًا
+         لو حطينا فيها class مركب زي "ti ti-photo-off". الحل الأنضف:
+         الحاوية بس، والأيقونة بتيجي تلقائي من CSS. */
+      .card-img-ph .ph-icon::before,
+      .table-thumb-ph::before,
+      .cart-item-img-ph::before {
+        font-family: "tabler-icons" !important;
+        content: "\ecf6"; /* ti-photo-off */
+        line-height: 1;
+      }
       .card-img-ph .ph-text {
         font-size: 11px;
         font-weight: 600;
@@ -1551,6 +1633,7 @@
         align-items: center;
         justify-content: center;
         font-size: 18px;
+        color: var(--text3);
       }
       .table-name {
         font-weight: 700;
@@ -2466,6 +2549,9 @@
         font-size: 64px;
         margin-bottom: 16px;
         opacity: 0.6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
       .empty-wrap h3 {
         font-size: 18px;
@@ -3157,6 +3243,9 @@
       .cart-empty-icon {
         font-size: 52px;
         opacity: 0.5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
       .cart-empty p {
         font-size: 13px;
@@ -3196,6 +3285,7 @@
         justify-content: center;
         font-size: 22px;
         flex-shrink: 0;
+        color: var(--text3);
       }
       .cart-item-info {
         flex: 1;
@@ -3625,9 +3715,9 @@
             placeholder="ابحث عن صنف، كود، أو وصف..."
             autocomplete="off"
           />
-          <span class="search-icon">🔍</span>
+          <span class="search-icon"><i class="ti ti-search"></i></span>
           <button class="search-clear" id="search-clear-btn" title="مسح البحث">
-            ✕
+            <i class="ti ti-x"></i>
           </button>
         </div>
 
@@ -3667,7 +3757,7 @@
               title="عرض شبكة"
               onclick="setView('grid')"
             >
-              ⊞
+              <i class="ti ti-layout-grid"></i>
             </button>
             <button
               class="view-btn"
@@ -3675,12 +3765,12 @@
               title="عرض قائمة"
               onclick="setView('list')"
             >
-              ☰
+              <i class="ti ti-list"></i>
             </button>
           </div>
           <!-- زر السلة -->
           <button class="cart-btn" id="cart-open-btn" onclick="openCartPanel()">
-            🛒
+            <i class="ti ti-shopping-cart icon icon-sm"></i>
             <span id="cart-btn-label">السلة</span>
             <span class="cart-badge" id="cart-badge">0</span>
           </button>
@@ -3828,18 +3918,23 @@
     <div class="cart-panel" id="cart-panel">
       <div class="cart-panel-header">
         <h2>
-          🛒 <span>سلة الطلبات</span>
+          <i class="ti ti-shopping-cart icon icon-md"></i>
+          <span>سلة الطلبات</span>
           <span
             id="cart-count-label"
             style="font-size: 12px; font-weight: 600; color: var(--text3)"
             >(فارغة)</span
           >
         </h2>
-        <button class="cart-panel-close" onclick="closeCartPanel()">✕</button>
+        <button class="cart-panel-close" onclick="closeCartPanel()">
+          <i class="ti ti-x"></i>
+        </button>
       </div>
       <div id="cart-items-container" class="cart-items-list">
         <div class="cart-empty">
-          <div class="cart-empty-icon">🛒</div>
+          <div class="cart-empty-icon">
+            <i class="ti ti-shopping-cart-off"></i>
+          </div>
           <p>السلة فارغة<br />ابدأ بإضافة أصناف من الكتالوج</p>
         </div>
       </div>
@@ -3849,7 +3944,7 @@
           <b id="cart-total-items">0 صنف</b>
         </div>
         <button class="btn-cart-clear" onclick="clearCart()">
-          🗑️ مسح السلة بالكامل
+          <i class="ti ti-trash icon icon-sm"></i> مسح السلة بالكامل
         </button>
         <button class="btn-cart-whatsapp" onclick="sendCartWhatsApp()">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -3871,7 +3966,7 @@
           closeLightbox();
         "
       >
-        ✕
+        <i class="ti ti-x"></i>
       </button>
       <img id="lightbox-img" src="" alt="" onclick="event.stopPropagation()" />
     </div>
@@ -3909,7 +4004,7 @@
           </div>
         </div>
         <button class="mobile-cart-open-btn" onclick="openCartPanel()">
-          🛒 عرض السلة
+          <i class="ti ti-shopping-cart icon icon-sm"></i> عرض السلة
         </button>
       </div>
     </div>
@@ -4110,7 +4205,7 @@
               if (!res || !res.success) {
                 document.body.innerHTML =
                   '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;text-align:center;padding:20px">' +
-                  "<div>⚠️ " +
+                  '<div><i class="ti ti-alert-triangle" style="font-size:18px;vertical-align:-3px;margin-left:6px;color:#dc2626"></i>' +
                   ((res && res.message) || "الرابط غير صحيح أو انتهت صلاحيته") +
                   "</div></div>";
                 return;
@@ -4300,7 +4395,7 @@
         var el = document.getElementById("pub-content");
         el.style.display = "";
         el.innerHTML =
-          '<div class="error-wrap"><div style="font-size:40px;margin-bottom:12px">⚠️</div><p style="font-weight:700;font-size:16px;margin-bottom:6px">حدث خطأ</p><p style="font-size:13px;margin-bottom:14px">' +
+          '<div class="error-wrap"><div style="font-size:40px;margin-bottom:12px;color:var(--danger)"><i class="ti ti-alert-triangle"></i></div><p style="font-weight:700;font-size:16px;margin-bottom:6px">حدث خطأ</p><p style="font-size:13px;margin-bottom:14px">' +
           _esc(msg) +
           '</p><button type="button" id="pub-retry-btn" style="background:#2563eb;color:#fff;border:none;border-radius:10px;padding:9px 22px;font-size:13px;font-weight:700;cursor:pointer">إعادة المحاولة</button></div>';
         var retryBtn = document.getElementById("pub-retry-btn");
@@ -4514,26 +4609,26 @@
           var gname = _groupName(PUB.groupFilter);
           chips.push(
             '<span class="active-filter-chip" onclick="setGroupFilter(\'all\')">' +
-              "📁 " +
+              '<i class="ti ti-folder" style="font-size:12px"></i> ' +
               _esc(gname) +
-              ' <span style="font-size:10px;opacity:.7">✕</span></span>',
+              ' <i class="ti ti-x" style="font-size:11px;opacity:.7"></i></span>',
           );
         }
         if (PUB.statusFilter !== "all") {
           var slabel = PUB.statusFilter === "avail" ? "متاح" : "محدود";
           chips.push(
             '<span class="active-filter-chip" onclick="setStatusFilter(\'all\')">' +
-              "🔖 " +
+              '<i class="ti ti-bookmark" style="font-size:12px"></i> ' +
               slabel +
-              ' <span style="font-size:10px;opacity:.7">✕</span></span>',
+              ' <i class="ti ti-x" style="font-size:11px;opacity:.7"></i></span>',
           );
         }
         if (PUB.searchQ) {
           chips.push(
             "<span class=\"active-filter-chip\" onclick=\"document.getElementById('pub-search').value='';PUB.searchQ='';document.getElementById('search-clear-btn').classList.remove('visible');_render();\">" +
-              "🔍 " +
+              '<i class="ti ti-search" style="font-size:12px"></i> ' +
               _esc(PUB.searchQ) +
-              ' <span style="font-size:10px;opacity:.7">✕</span></span>',
+              ' <i class="ti ti-x" style="font-size:11px;opacity:.7"></i></span>',
           );
         }
         bar.innerHTML = chips.join("");
@@ -4602,7 +4697,7 @@
 
         if (!items.length) {
           wrap.innerHTML =
-            '<div class="empty-wrap"><div class="empty-icon">🔍</div><h3>لا توجد نتائج</h3><p>جرّب تغيير كلمة البحث أو الفلتر</p></div>';
+            '<div class="empty-wrap"><div class="empty-icon"><i class="ti ti-search-off"></i></div><h3>لا توجد نتائج</h3><p>جرّب تغيير كلمة البحث أو الفلتر</p></div>';
           return;
         }
 
@@ -4638,7 +4733,7 @@
             var cards = groups[k].map(_buildCard).join("");
             return (
               '<div class="group-header">' +
-              '<div class="group-icon">📦</div>' +
+              '<div class="group-icon"><i class="ti ti-package"></i></div>' +
               '<span class="group-title">' +
               _esc(grpName) +
               "</span>" +
@@ -4663,10 +4758,10 @@
         var badge = PUB.urlNoqty
           ? ""
           : s === "available"
-            ? '<span class="badge badge-avail">✅ متاح</span>'
+            ? '<span class="badge badge-avail"><i class="ti ti-circle-check" style="font-size:11px"></i> متاح</span>'
             : s === "low"
-              ? '<span class="badge badge-low">⚠️ محدود</span>'
-              : '<span class="badge badge-out">❌ نفذ</span>';
+              ? '<span class="badge badge-low"><i class="ti ti-alert-triangle" style="font-size:11px"></i> محدود</span>'
+              : '<span class="badge badge-out"><i class="ti ti-x" style="font-size:11px"></i> نفذ</span>';
 
         var _isEager = _cardRenderIndex < _EAGER_IMG_COUNT;
         _cardRenderIndex++;
@@ -4679,8 +4774,8 @@
               : 'loading="lazy" fetchpriority="low"') +
             ' decoding="async"' +
             " onload=\"this.classList.add('loaded')\"" +
-            " onerror=\"this.parentElement.innerHTML='<div class=card-img-ph><div class=ph-icon>📦</div><div class=ph-ph-text>لا توجد صورة</div></div>'\">"
-          : '<div class="card-img-ph"><div class="ph-icon">📦</div></div>';
+            " onerror=\"this.parentElement.innerHTML='<div class=card-img-ph><div class=ph-icon></div><div class=ph-text>لا توجد صورة</div></div>'\">"
+          : '<div class="card-img-ph"><div class="ph-icon"></div></div>';
 
         var colors = _parseColors(it.colors_json);
 
@@ -4738,7 +4833,7 @@
 
         var priceHtml =
           !PUB.urlNoprices && it.selling_price && Number(it.selling_price) > 0
-            ? '<div class="card-price">💰 ' +
+            ? '<div class="card-price"><i class="ti ti-coin" style="font-size:13px"></i> ' +
               Number(it.selling_price).toLocaleString("en-US") +
               " ج.م</div>"
             : "";
@@ -4797,10 +4892,10 @@
           (isDisabled
             ? "_showToast('❌ هذا الصنف غير متاح حالياً')"
             : "openOrderModal('" + _esc(it.code) + "')") +
-          '">💬 اطلب الآن</button>' +
+          '"><i class="ti ti-message-circle" style="font-size:15px"></i> اطلب الآن</button>' +
           '<button class="btn-details" title="تفاصيل" onclick="event.stopPropagation();openDrawer(\'' +
           _esc(it.code) +
-          "')\">👁️</button>" +
+          "')\"><i class=\"ti ti-eye\"></i></button>" +
           "</div></div>"
         );
       }
@@ -4925,15 +5020,15 @@
             var badge = PUB.urlNoqty
               ? ""
               : s === "available"
-                ? '<span class="badge badge-avail">متاح</span>'
+                ? '<span class="badge badge-avail"><i class="ti ti-circle-check" style="font-size:11px"></i> متاح</span>'
                 : s === "low"
-                  ? '<span class="badge badge-low">محدود</span>'
-                  : '<span class="badge badge-out">نفذ</span>';
+                  ? '<span class="badge badge-low"><i class="ti ti-alert-triangle" style="font-size:11px"></i> محدود</span>'
+                  : '<span class="badge badge-out"><i class="ti ti-x" style="font-size:11px"></i> نفذ</span>';
             var thumb = it.image_url
               ? '<img src="' +
                 _esc(it.image_url) +
-                '" class="table-thumb" loading="lazy" onerror="this.parentElement.innerHTML=\'<div class=table-thumb-ph>📦</div>\'">'
-              : '<div class="table-thumb-ph">📦</div>';
+                '" class="table-thumb" loading="lazy" onerror="this.parentElement.innerHTML=\'<div class=table-thumb-ph></div>\'">'
+              : '<div class="table-thumb-ph"></div>';
             var colors = _parseColors(it.colors_json);
             var dots = colors
               .slice(0, 6)
@@ -4993,7 +5088,7 @@
               "</td>" +
               '<td onclick="event.stopPropagation()"><button class="btn-order" style="padding:7px 14px;font-size:11px" onclick="openDrawer(\'' +
               _esc(it.code) +
-              "')\">💬 اطلب</button></td>" +
+              "')\"><i class=\"ti ti-message-circle\" style=\"font-size:13px\"></i> اطلب</button></td>" +
               "</tr>"
             );
           })
@@ -5950,7 +6045,7 @@
         if (CART.length === 0) {
           container.innerHTML =
             '<div class="cart-empty">' +
-            '<div class="cart-empty-icon">🛒</div>' +
+            '<div class="cart-empty-icon"><i class="ti ti-shopping-cart-off"></i></div>' +
             "<p>السلة فارغة<br>ابدأ بإضافة أصناف من الكتالوج</p>" +
             "</div>";
           return;
@@ -5960,8 +6055,8 @@
           var imgEl = item.imageUrl
             ? '<img class="cart-item-img" src="' +
               _esc(item.imageUrl) +
-              '" loading="lazy" onerror="this.outerHTML=\'<div class=cart-item-img-ph>📦</div>\'">'
-            : '<div class="cart-item-img-ph">📦</div>';
+              '" loading="lazy" onerror="this.outerHTML=\'<div class=cart-item-img-ph></div>\'">'
+            : '<div class="cart-item-img-ph"></div>';
           var colorRow = item.color
             ? '<div class="cart-item-color">' +
               '<div class="cart-item-color-dot" style="background:' +
@@ -6003,7 +6098,7 @@
             "</div></div>" +
             '<button class="cart-item-remove" title="حذف" onclick="cartRemove(' +
             idx +
-            ')">✕</button>' +
+            ')"><i class="ti ti-x"></i></button>' +
             "</div>"
           );
         }).join("");

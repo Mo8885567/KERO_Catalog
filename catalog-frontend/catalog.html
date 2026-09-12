@@ -1120,6 +1120,13 @@
         cursor: pointer;
         transition: background var(--transition);
         backdrop-filter: blur(8px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+      }
+      .card-overlay-btn .ti-eye {
+        font-size: 14px;
       }
       .card-overlay-btn:hover {
         background: #fff;
@@ -4752,7 +4759,7 @@
           (badge ? '<div class="card-status">' + badge + "</div>" : "") +
           '<div class="card-overlay"><button class="card-overlay-btn" onclick="event.stopPropagation();openDrawer(\'' +
           _esc(it.code) +
-          "')\">👁️ عرض التفاصيل</button></div>" +
+          "')\"><i class=\"ti ti-eye\"></i> عرض التفاصيل</button></div>" +
           "</div>" +
           '<div class="card-body">' +
           '<div class="card-name-row">' +

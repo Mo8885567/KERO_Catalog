@@ -2,14 +2,13 @@
 // وبيعمل كاش لملفات الواجهة الثابتة (HTML/CSS/JS/الخطوط/الأيقونات)
 // من غير ما يلمس طلبات البيانات اللي رايحة لـ Google Apps Script
 
-const CACHE_VERSION = "keroman-v3";
+const CACHE_VERSION = "keroman-v1";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 
 // أهم الملفات اللي المفروض تتخزن من أول ما الموقع يتفتح
 const PRECACHE_URLS = [
-  "/",
-  "/admin",
-  "/catalog",
+  "index.html",
+  "catalog.html",
   "manifest.json",
   "manifest-admin.json",
   "assets/logo/favicon-32.png",
@@ -23,15 +22,7 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(STATIC_CACHE)
-      .then((cache) =>
-        Promise.allSettled(
-          PRECACHE_URLS.map((url) =>
-            cache.add(url).catch((err) => {
-              console.warn("Precache skipped for", url, err);
-            })
-          )
-        )
-      )
+      .then((cache) => cache.addAll(PRECACHE_URLS))
       .then(() => self.skipWaiting())
   );
 });

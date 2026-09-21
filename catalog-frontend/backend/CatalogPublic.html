@@ -4142,18 +4142,17 @@
               now < 12 ? "صباح الخير" : now < 18 ? "مساء الخير" : "مساء النور";
             welcomeEl.innerHTML =
               '<div style="background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%);' +
-              "border:1.5px solid #93c5fd;border-radius:14px;padding:10px 16px;" +
-              'display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
-              '<div style="width:26px;height:26px;border-radius:50%;background:#2563eb;' +
-              'display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;line-height:1">👋</div>' +
-              '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0">' +
-              '<span style="font-size:14px;font-weight:800;color:#1d4ed8;white-space:nowrap">' +
+              "border:1.5px solid #93c5fd;border-radius:16px;padding:16px 22px;" +
+              'display:flex;align-items:center;gap:14px">' +
+              '<div style="width:46px;height:46px;border-radius:50%;background:#2563eb;' +
+              'display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:22px">👋</div>' +
+              "<div>" +
+              '<div style="font-size:16px;font-weight:800;color:#1d4ed8;margin-bottom:3px">' +
               greet +
               "، " +
               _esc(_URL_CLIENT) +
-              "!</span>" +
-              '<span style="font-size:11px;color:#93c5fd">•</span>' +
-              '<span style="font-size:12px;color:#3b82f6;white-space:nowrap">تم تخصيص هذا الكتالوج لك خصيصاً — تصفّح واطلب بكل راحة 🛍️</span>' +
+              "!</div>" +
+              '<div style="font-size:12px;color:#3b82f6;">تم تخصيص هذا الكتالوج لك خصيصاً — تصفّح واطلب بكل راحة 🛍️</div>' +
               "</div></div>";
             welcomeEl.style.display = "block";
           }
@@ -4201,15 +4200,9 @@
         document.getElementById("sf-low-count").textContent = low;
 
         // لما noqty → أخفِ قسم فلتر الحالة في الـ sidebar
-        // ملاحظة: تفادينا استخدام :has() في querySelector لأنها بتكسر
-        // على متصفحات قديمة (مثل الأجهزة اللي بتشغل ويندوز 7) بخطأ SyntaxError
-        var statusSection = null;
-        try {
-          var pillsEl = document.querySelector(".status-pills");
-          if (pillsEl) statusSection = pillsEl.closest(".sidebar-section");
-        } catch (e) {
-          statusSection = null;
-        }
+        var statusSection = document.querySelector(
+          ".sidebar-section:has(.status-pills)",
+        );
         if (!statusSection) {
           // fallback: ابحث عن السيكشن اللي فيه sf-all
           var sfAll = document.getElementById("sf-all");
@@ -5970,52 +5963,6 @@
       window.addEventListener("error", function (e) {
         console.error("Uncaught error:", e.error || e.message);
       });
-    </script>
-    <!--
-      دعم الإيموجي على الأجهزة/الويندوز القديم:
-      ويندوز 7 (وبعض المتصفحات القديمة) معندهاش خط الإيموجي الملون
-      (Segoe UI Emoji) اللي اتضاف بس من ويندوز 8.1، فبتظهر الإيموجي
-      كمربع فاضي (tofu). الحل هنا: مكتبة Twemoji بتستبدل رموز
-      الإيموجي في النص بصور SVG بتتحمل من الـ CDN، فتظهر بنفس
-      الشكل على أي جهاز مهما كان قديم، وبدون ما نغيّر أي كود تاني.
-    -->
-    <script
-      src="https://cdn.jsdelivr.net/npm/twemoji@14.0.2/dist/twemoji.min.js"
-      crossorigin="anonymous"
-      defer
-    ></script>
-    <script>
-      (function () {
-        function runTwemoji() {
-          if (window.twemoji && document.body) {
-            try {
-              window.twemoji.parse(document.body, {
-                folder: "svg",
-                ext: ".svg",
-              });
-            } catch (e) {
-              /* لو فشلت (مثلاً مفيش نت) سيبها، النص العادي هيفضل شغال */
-            }
-          }
-        }
-
-        window.addEventListener("load", function () {
-          runTwemoji();
-
-          if ("MutationObserver" in window) {
-            var pending = null;
-            var observer = new MutationObserver(function () {
-              if (pending) clearTimeout(pending);
-              pending = setTimeout(runTwemoji, 250);
-            });
-            observer.observe(document.body, {
-              childList: true,
-              subtree: true,
-              characterData: true,
-            });
-          }
-        });
-      })();
     </script>
   </body>
 </html>

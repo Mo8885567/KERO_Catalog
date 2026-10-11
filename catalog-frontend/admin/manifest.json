@@ -1,0 +1,40 @@
+{
+  "name": "إدارة الكتالوج — كيرو مان",
+  "short_name": "إدارة الكتالوج",
+  "description": "لوحة إدارة كتالوج كيرو مان",
+  "start_url": "/admin/",
+  "scope": "/admin/",
+  "id": "/admin/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "dir": "rtl",
+  "lang": "ar",
+  "background_color": "#f6f8fc",
+  "theme_color": "#131921",
+  "icons": [
+    {
+      "src": "/assets/logo/favicon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/logo/favicon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/assets/logo/favicon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/logo/favicon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

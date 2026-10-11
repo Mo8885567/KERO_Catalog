@@ -4,7 +4,7 @@
  *
  * يستبدل google.script.run بـ fetch() يتصل بـ Google Apps Script
  * عبر URL خارجي — يحافظ على نفس API بدون تغيير أي كود.
- * مشترك بين index.html (لوحة الإدارة) و catalog.html (الكتالوج العام)
+ * مشترك بين /admin (لوحة الإدارة) و / (الكتالوج العام)
  * لأنهم على نفس الدومين، فبيشاركوا نفس localStorage.
  *
  * الإعداد: ضع رابط النشر في:
@@ -230,15 +230,13 @@
 
     // الدوال المعروفة مسبقاً
     var KNOWN_FNS = [
-      // ── الكتالوج العام (catalog.html) ──
-      'getCatalogPublicData', 'logPublicCatalogWhatsapp', 'resolveLinkedCatalog',
-      'resolveLinkedCatalogFull',
-      // ── لوحة الإدارة (index.html) ──
+      // ── الكتالوج العام (/) ──
+      'getCatalogPublicData', 'logPublicCatalogWhatsapp',
+      // ── لوحة الإدارة (/admin) ──
       'adminLogin', 'adminGetData',
       'adminSaveItem', 'adminDeleteItem',
       'adminSaveGroup', 'adminDeleteGroup',
       'adminGetSettings', 'adminSaveSettings', 'adminChangePassword',
-      'adminListLinks', 'adminCreateLink', 'adminSetLinkActive', 'adminDeleteLink',
       'ping',
     ];
 

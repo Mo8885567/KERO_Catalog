@@ -1,0 +1,413 @@
+/* ═══════════════════════════════════════════════════════════════
+   ثيم "على طريقة أمازون" للكتالوج العام
+   - بيتحمّل بعد ستايل الصفحة الأساسي، فبيعدّل عليه من غير ما يلمس الكود.
+   - عشان ترجع للتصميم القديم: شيل سطر <link> الخاص بالملف ده من index.html.
+   الألوان: #131921 (هيدر) · #232f3e (شريط التصنيفات) · #febd69/#ff9900 (برتقالي)
+            #ffd814 (زر الطلب) · #007185 (لينكات) · #c7511f (hover) · #b12704 (سعر/تنبيه)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── الألوان الأساسية (الوضع النهاري فقط) ── */
+:root:not([data-theme="dark"]) {
+  --bg: #eaeded;
+  --surface: #ffffff;
+  --surface2: #f7fafa;
+  --border: #d5d9d9;
+  --border2: #d5d9d9;
+  --text: #0f1111;
+  --text2: #565959;
+  --text3: #6f7373;
+  --primary: #007185;
+  --primary-dark: #c7511f;
+  --primary-soft: #e6f4f7;
+  --primary-mid: #b9dde4;
+  --accent: #007185;
+  --radius: 8px;
+  --radius-lg: 8px;
+  --shadow-sm: none;
+}
+:root[data-theme="dark"] {
+  --accent: #4cc0d6;
+}
+
+/* ═════════ الهيدر ═════════ */
+.header {
+  height: auto;
+  background: #131921;
+  border-bottom: 0;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.header-inner {
+  height: 60px;
+  padding: 0 20px;
+  gap: 14px;
+}
+.brand {
+  color: #fff;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+}
+.brand:hover {
+  border-color: #fff;
+}
+.brand-logo {
+  background: #fff;
+  border-radius: 6px;
+  padding: 2px;
+  display: flex;
+}
+.brand-info h1 {
+  color: #fff;
+  font-size: 17px;
+}
+.brand-info p {
+  color: #ccd1d6;
+}
+
+/* البحث الكبير — صندوق أبيض + زر برتقالي في الطرف */
+.search-wrap {
+  max-width: none;
+  flex: 1;
+}
+.search-input {
+  height: 42px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f1111;
+  font-size: 14px;
+  padding: 0 40px 0 58px;
+}
+.search-input:focus {
+  background: #fff;
+  border-color: #ff9900;
+  box-shadow: 0 0 0 3px rgba(255, 153, 0, 0.3);
+}
+.search-input::placeholder {
+  color: #6f7373;
+}
+.search-icon {
+  left: 0;
+  top: 0;
+  transform: none;
+  width: 48px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #febd69;
+  color: #131921;
+  border-radius: 8px 0 0 8px;
+  font-size: 17px;
+}
+.search-input:focus + .search-icon {
+  color: #131921;
+  background: #f3a847;
+}
+.search-clear {
+  right: 12px;
+}
+
+/* أزرار الهيدر على الخلفية الداكنة */
+.header-actions {
+  gap: 6px;
+}
+.theme-toggle-btn,
+.mobile-search-toggle-btn,
+.mobile-filter-btn,
+.view-toggle {
+  background: transparent;
+  border: 1px solid #485769;
+  color: #fff;
+  border-radius: 6px;
+}
+.theme-toggle-btn:hover,
+.mobile-search-toggle-btn:hover,
+.mobile-filter-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: #fff;
+  color: #fff;
+  transform: none;
+}
+.view-btn {
+  color: #b7c0c9;
+}
+.view-btn.active {
+  background: #37475a;
+  color: #fff;
+  box-shadow: none;
+}
+.view-btn:not(.active):hover {
+  color: #fff;
+}
+.cart-btn,
+.cart-btn.has-items {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 13px;
+  box-shadow: none;
+}
+.cart-btn:hover,
+.cart-btn.has-items:hover {
+  background: transparent;
+  border-color: #fff;
+  color: #fff;
+  box-shadow: none;
+}
+.cart-badge {
+  background: #ff9900;
+  color: #131921;
+  box-shadow: none;
+}
+.whatsapp-btn {
+  border-radius: 6px;
+  box-shadow: none;
+  transform: none;
+}
+.whatsapp-btn:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* شريط التصنيفات تحت الهيدر (زي أمازون) */
+.nav-strip {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 40px;
+  padding: 0 14px;
+  background: #232f3e;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.nav-strip::-webkit-scrollbar {
+  display: none;
+}
+.nav-link {
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: 2px solid transparent;
+  border-radius: 3px;
+  color: #fff;
+  font-family: var(--font);
+  font-size: 13px;
+  padding: 6px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.nav-link:hover {
+  border-color: #fff;
+}
+.nav-link.active {
+  font-weight: 700;
+  border-bottom-color: #ff9900;
+}
+.nav-link.nav-all {
+  font-weight: 700;
+}
+
+/* ═════════ السايدبار ═════════ */
+.stats-card {
+  display: none;
+}
+.sidebar-section {
+  border-radius: 8px;
+  border-color: #d5d9d9;
+  box-shadow: none;
+}
+.sidebar-title {
+  color: #0f1111;
+  font-size: 15px;
+  font-weight: 700;
+}
+.sidebar-icon-badge {
+  display: none;
+}
+.sidebar-item {
+  border-radius: 4px;
+}
+.sidebar-item:hover {
+  background: #f0f2f2;
+}
+.sidebar-item.active {
+  background: #f0f2f2;
+  color: #0f1111;
+  font-weight: 700;
+  box-shadow: inset -3px 0 0 #ff9900;
+}
+.sidebar-item.active .sidebar-count {
+  background: #fff;
+  color: #0f1111;
+}
+
+/* ═════════ كروت المنتجات ═════════ */
+.card {
+  border-radius: 8px;
+  border: 1px solid #d5d9d9;
+  box-shadow: none;
+}
+.card:hover {
+  transform: none;
+  border-color: #d5d9d9;
+  box-shadow: 0 2px 10px rgba(15, 17, 17, 0.2);
+}
+.card-img-wrap {
+  padding-top: 100%;
+  background: #fff;
+}
+.card-img {
+  inset: 12px;
+  width: calc(100% - 24px);
+  height: calc(100% - 24px);
+}
+.card:hover .card-img {
+  transform: none;
+}
+.card-overlay {
+  display: none;
+}
+.card-body {
+  padding: 4px 14px 8px;
+  gap: 4px;
+}
+.card-name {
+  font-size: 14.5px;
+  font-weight: 500;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.card:hover .card-name {
+  color: #c7511f;
+}
+.card-code-badge {
+  font-size: 10px;
+}
+.card-desc {
+  display: none;
+}
+.card-group {
+  font-size: 12px;
+  color: #565959;
+}
+.card-group::before {
+  display: none;
+}
+/* السعر بارز فوق، وألوان المنتج تحته */
+.card-colors-row {
+  flex-direction: column-reverse;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 2px;
+}
+.card-price {
+  display: block;
+  background: none;
+  border: 0;
+  padding: 0;
+  border-radius: 0;
+  color: #0f1111;
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+.card-price .p-cur {
+  font-size: 13px;
+  font-weight: 400;
+  margin-right: 3px;
+}
+.card-footer {
+  padding: 4px 14px 14px;
+}
+.btn-order {
+  background: #ffd814;
+  color: #0f1111;
+  border: 1px solid #fcd200;
+  border-radius: 100px;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: 400;
+  box-shadow: none;
+}
+.btn-order:hover {
+  background: #f7ca00;
+  border-color: #f2c200;
+  transform: none;
+  box-shadow: none;
+}
+.btn-order.btn-order-disabled,
+.btn-order.btn-order-disabled:hover {
+  background: #e7e9e9 !important;
+  border-color: #d5d9d9 !important;
+  color: #6f7373 !important;
+}
+.btn-details {
+  display: none;
+}
+
+/* شبكة أمازون على الديسكتوب (الموبايل بيفضل على قواعده الأصلية) */
+@media (min-width: 769px) {
+  :root {
+    --header-h: 100px;
+  }
+  .cards-grid {
+    grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
+    gap: 14px;
+  }
+  .cards-grid.grid-compact {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
+}
+
+/* ═════════ الموبايل: هيدر من صفّين والبحث ظاهر دايمًا ═════════ */
+@media (max-width: 768px) {
+  :root {
+    --header-h: 108px;
+  }
+  .header-inner {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 8px 10px;
+    gap: 8px;
+  }
+  .brand {
+    padding: 2px;
+  }
+  .mobile-search-toggle-btn {
+    display: none;
+  }
+  .search-wrap,
+  .search-wrap.mobile-search-open {
+    display: flex;
+    position: relative;
+    order: 5;
+    flex: 0 0 100%;
+    top: auto;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    z-index: auto;
+  }
+  .nav-strip {
+    display: none;
+  }
+  .card-body {
+    padding: 2px 10px 6px;
+  }
+  .card-footer {
+    padding: 4px 10px 10px;
+  }
+  .card-price {
+    font-size: 18px;
+  }
+  .card-name {
+    font-size: 13px;
+  }
+}

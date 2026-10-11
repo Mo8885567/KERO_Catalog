@@ -1,0 +1,1922 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>إدارة الكتالوج — كيرو مان</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/logo/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/assets/logo/favicon-192.png" />
+    <link rel="shortcut icon" href="/assets/logo/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/assets/logo/favicon-192.png" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="manifest" href="/admin/manifest.json" />
+    <meta name="theme-color" content="#1a56db" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="إدارة الكتالوج" />
+    <link
+      href="/assets/fonts/fonts.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="/assets/icons/tabler-icons.min.css"
+    />
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      :root {
+        --bg: #f6f8fc;
+        --surface: #ffffff;
+        --surface2: #f0f4fa;
+        --border: #e2e8f5;
+        --border2: #d0d9ee;
+        --text: #0d1526;
+        --text2: #4a5778;
+        --text3: #8a96b3;
+        --primary: #1a56db;
+        --primary-dark: #1345b5;
+        --primary-soft: #eef3ff;
+        --success: #0caa6d;
+        --success-soft: #e8faf3;
+        --danger: #dc2626;
+        --danger-soft: #fef2f2;
+        --warning: #d97706;
+        --warning-soft: #fffbeb;
+        --header-bg: rgba(255, 255, 255, 0.95);
+        --radius-sm: 10px;
+        --radius: 14px;
+        --radius-lg: 20px;
+        --font: "IBM Plex Sans Arabic", sans-serif;
+        --shadow-sm:
+          0 2px 8px rgba(13, 21, 38, 0.08), 0 1px 3px rgba(13, 21, 38, 0.05);
+        --shadow:
+          0 6px 20px rgba(13, 21, 38, 0.09), 0 2px 6px rgba(13, 21, 38, 0.05);
+        --shadow-lg:
+          0 20px 60px rgba(13, 21, 38, 0.14), 0 6px 20px rgba(13, 21, 38, 0.07);
+      }
+
+      /* ===== الوضع الليلي ===== */
+      html[data-theme="dark"] {
+        color-scheme: dark;
+        --bg: #0b1120;
+        --surface: #131b2e;
+        --surface2: #1a2439;
+        --border: #263049;
+        --border2: #32405f;
+        --text: #edf1fa;
+        --text2: #a8b2cc;
+        --text3: #74809e;
+        --primary: #4b83f0;
+        --primary-dark: #3b6bd6;
+        --primary-soft: #182545;
+        --success: #22c57a;
+        --success-soft: #102a20;
+        --danger: #f0605c;
+        --danger-soft: #331617;
+        --warning: #f0b13a;
+        --warning-soft: #302408;
+        --header-bg: rgba(19, 27, 46, 0.92);
+        --shadow-sm:
+          0 2px 8px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.25);
+        --shadow: 0 6px 20px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.25);
+        --shadow-lg:
+          0 20px 60px rgba(0, 0, 0, 0.55), 0 6px 20px rgba(0, 0, 0, 0.3);
+      }
+      /* انتقال ناعم بين الوضعين بدل التغيير المفاجئ */
+      body,
+      .header,
+      .login-box,
+      .modal-box,
+      .card-table,
+      .form-field input,
+      .form-field select,
+      .form-field textarea,
+      .tab-btn,
+      .settings-card {
+        transition:
+          background-color 0.25s ease,
+          color 0.25s ease,
+          border-color 0.25s ease;
+      }
+      body {
+        font-family: var(--font);
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        font-size: 14px;
+      }
+      button {
+        font-family: var(--font);
+        cursor: pointer;
+        border: none;
+      }
+      input,
+      select,
+      textarea {
+        font-family: var(--font);
+      }
+
+      /* ===== LOGIN ===== */
+      #loginScreen {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .login-box {
+        width: 100%;
+        max-width: 360px;
+        background: var(--surface);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-lg);
+        padding: 36px 32px;
+        text-align: center;
+      }
+      .login-box h1 {
+        font-size: 18px;
+        margin-bottom: 6px;
+      }
+      .login-box p {
+        color: var(--text3);
+        font-size: 13px;
+        margin-bottom: 24px;
+      }
+      .login-box input {
+        width: 100%;
+        padding: 12px 14px;
+        border: 1.5px solid var(--border2);
+        border-radius: var(--radius-sm);
+        font-size: 15px;
+        margin-bottom: 12px;
+        text-align: center;
+        letter-spacing: 2px;
+      }
+      .login-box input:focus {
+        outline: none;
+        border-color: var(--primary);
+      }
+      .login-box button {
+        width: 100%;
+        padding: 12px;
+        background: var(--primary);
+        color: #fff;
+        border-radius: var(--radius-sm);
+        font-size: 14px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+      .login-box button:hover {
+        background: var(--primary-dark);
+      }
+      .login-box button:disabled {
+        opacity: 0.75;
+        cursor: default;
+      }
+      .btn-spinner {
+        width: 15px;
+        height: 15px;
+        border-radius: 50%;
+        border: 2px solid rgba(255, 255, 255, 0.35);
+        border-top-color: #fff;
+        display: inline-block;
+        animation: btnSpin 0.7s linear infinite;
+        flex-shrink: 0;
+      }
+      @keyframes btnSpin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      /* سكيليتون بسيط لصفوف جدول الأصناف وقت التحديث اليدوي */
+      .skeleton-row td {
+        padding: 14px 12px;
+      }
+      .skeleton-bar {
+        height: 16px;
+        border-radius: 6px;
+        background: linear-gradient(
+          100deg,
+          var(--border, #e2e8f5) 30%,
+          var(--surface2, #f0f4fa) 50%,
+          var(--border, #e2e8f5) 70%
+        );
+        background-size: 200% 100%;
+        animation: skeletonShimmer 1.3s ease-in-out infinite;
+      }
+      @keyframes skeletonShimmer {
+        0% {
+          background-position: 200% 0;
+        }
+        100% {
+          background-position: -200% 0;
+        }
+      }
+      #loginError {
+        color: var(--danger);
+        font-size: 12.5px;
+        margin-top: 10px;
+        min-height: 16px;
+      }
+
+      /* ===== APP SHELL ===== */
+      #app {
+        display: none;
+      }
+      .header {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background: var(--header-bg);
+        backdrop-filter: blur(16px);
+        border-bottom: 1px solid var(--border);
+        padding: 14px 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .header h1 {
+        font-size: 17px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .header h1 i {
+        color: var(--primary);
+      }
+      .tabs {
+        display: flex;
+        gap: 6px;
+      }
+      .tab-btn {
+        padding: 9px 18px;
+        border-radius: 999px;
+        background: transparent;
+        color: var(--text2);
+        font-size: 13.5px;
+        font-weight: 600;
+      }
+      .tab-btn.active {
+        background: var(--primary);
+        color: #fff;
+      }
+
+      /* ===== زرار تبديل الوضع الليلي ===== */
+      .theme-toggle-btn {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: var(--surface2);
+        border: 1.5px solid var(--border2);
+        color: var(--text2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        transition: all 0.2s ease;
+        flex-shrink: 0;
+      }
+      .theme-toggle-btn:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+      }
+
+      /* ===== شاشة الإعدادات ===== */
+      .settings-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 16px;
+        align-items: start;
+      }
+      .settings-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-sm);
+        padding: 20px 22px;
+      }
+      .settings-card h3 {
+        font-size: 14.5px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 4px;
+      }
+      .settings-card h3 i {
+        color: var(--primary);
+      }
+      .settings-card p.settings-hint {
+        color: var(--text3);
+        font-size: 12px;
+        margin-bottom: 16px;
+      }
+      .settings-card.danger h3 i {
+        color: var(--danger);
+      }
+      .settings-card .form-grid {
+        margin-bottom: 4px;
+      }
+      .settings-actions {
+        display: flex;
+        justify-content: flex-start;
+        gap: 10px;
+        margin-top: 16px;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 10px 16px;
+        border-radius: var(--radius-sm);
+        font-size: 13.5px;
+        font-weight: 600;
+      }
+      .btn-primary {
+        background: var(--primary);
+        color: #fff;
+      }
+      .btn-primary:hover {
+        background: var(--primary-dark);
+      }
+      .btn-ghost {
+        background: var(--surface2);
+        color: var(--text2);
+      }
+      .btn-ghost:hover {
+        background: var(--border);
+      }
+      .btn-danger-ghost {
+        background: var(--danger-soft);
+        color: var(--danger);
+      }
+      .btn-danger-ghost:hover {
+        background: #fde2e2;
+      }
+
+      main {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 22px 24px 60px;
+      }
+      .toolbar {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .search-input {
+        flex: 1;
+        min-width: 200px;
+        padding: 10px 14px;
+        border: 1.5px solid var(--border2);
+        border-radius: var(--radius-sm);
+        font-size: 13.5px;
+      }
+      .search-input:focus {
+        outline: none;
+        border-color: var(--primary);
+      }
+
+      .card-table {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+        box-shadow: var(--shadow-sm);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      thead th {
+        background: var(--surface2);
+        text-align: center;
+        padding: 11px 14px;
+        font-weight: 700;
+        color: var(--text2);
+        white-space: nowrap;
+      }
+      tbody td {
+        padding: 10px 14px;
+        border-top: 1px solid var(--border);
+        vertical-align: middle;
+        text-align: center;
+      }
+      tbody tr:hover {
+        background: var(--primary-soft);
+      }
+      .pill {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-size: 11.5px;
+        font-weight: 700;
+      }
+      .pill-ok {
+        background: var(--success-soft);
+        color: var(--success);
+      }
+      .pill-off {
+        background: var(--danger-soft);
+        color: var(--danger);
+      }
+      .row-actions {
+        display: flex;
+        gap: 6px;
+        justify-content: center;
+      }
+      .icon-btn {
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--surface2);
+        color: var(--text2);
+        font-size: 14px;
+      }
+      .icon-btn:hover {
+        background: var(--border);
+      }
+      .icon-btn.danger:hover {
+        background: var(--danger-soft);
+        color: var(--danger);
+      }
+      .empty-state {
+        text-align: center;
+        padding: 50px 20px;
+        color: var(--text3);
+      }
+
+      /* ===== MODAL ===== */
+      .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(13, 21, 38, 0.55);
+        z-index: 500;
+        display: none;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 40px 16px;
+      }
+      .modal-overlay.show {
+        display: flex;
+      }
+      .modal-box {
+        background: var(--surface);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-lg);
+        width: 100%;
+        max-width: 560px;
+        padding: 26px 28px 22px;
+        max-height: calc(100vh - 80px);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .modal-box h2 {
+        font-size: 16.5px;
+        margin-bottom: 18px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 0 0 auto;
+      }
+      .modal-body {
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        flex: 1 1 auto;
+        margin: 0 -28px;
+        padding: 0 28px;
+      }
+      .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px 14px;
+      }
+      .form-field {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      .form-field.full {
+        grid-column: 1 / -1;
+      }
+      .form-field label {
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--text2);
+      }
+      .form-field input,
+      .form-field select,
+      .form-field textarea {
+        padding: 9px 11px;
+        border: 1.5px solid var(--border2);
+        border-radius: var(--radius-sm);
+        font-size: 13.5px;
+      }
+      .form-field input:focus,
+      .form-field select:focus,
+      .form-field textarea:focus {
+        outline: none;
+        border-color: var(--primary);
+      }
+      .form-field textarea {
+        resize: vertical;
+        min-height: 60px;
+        font-family: var(--mono, monospace);
+        font-size: 12px;
+      }
+      .checkbox-field {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .checkbox-field input {
+        width: 17px;
+        height: 17px;
+      }
+      .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        flex: 0 0 auto;
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid var(--border2);
+      }
+      .field-error {
+        color: var(--danger);
+        font-size: 12px;
+        margin-top: 10px;
+        min-height: 14px;
+      }
+
+      /* ===== محرر الألوان ===== */
+      .colors-editor {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .colors-empty {
+        padding: 14px;
+        text-align: center;
+        color: var(--text3);
+        font-size: 12.5px;
+        background: var(--surface2);
+        border-radius: var(--radius-sm);
+        border: 1px dashed var(--border2);
+      }
+      .color-row {
+        background: var(--surface2);
+        border: 1.5px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .color-row-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .color-hex-input {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        margin: 0;
+        border: 2px solid var(--border2);
+        border-radius: 50%;
+        cursor: pointer;
+        flex-shrink: 0;
+        overflow: hidden;
+        background: none;
+        color-scheme: light; /* يمنع كروم من رسم خلفية رمادية بتاعة الوضع الليلي حوالين السواتش */
+      }
+      .color-hex-input::-webkit-color-swatch-wrapper {
+        padding: 0;
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+      }
+      .color-hex-input::-webkit-color-swatch {
+        border: none;
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+      }
+      .color-hex-input::-moz-color-swatch {
+        border: none;
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+      }
+      .color-hex-input::-moz-focus-inner {
+        border: none;
+        padding: 0;
+      }
+      .color-name-input {
+        flex: 1;
+        padding: 8px 10px;
+        border: 1.5px solid var(--border2);
+        border-radius: var(--radius-sm);
+        font-size: 13px;
+      }
+      .color-name-input:focus {
+        outline: none;
+        border-color: var(--primary);
+      }
+      .color-images-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding-inline-start: 46px;
+      }
+      .img-link-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .img-link-row input {
+        flex: 1;
+        padding: 7px 10px;
+        border: 1.5px solid var(--border2);
+        border-radius: var(--radius-sm);
+        font-size: 12.5px;
+        font-family: var(--mono, monospace);
+      }
+      .img-link-row input:focus {
+        outline: none;
+        border-color: var(--primary);
+      }
+      .btn-sm {
+        padding: 6px 12px;
+        font-size: 12px;
+        align-self: flex-start;
+        margin-inline-start: 46px;
+      }
+      .icon-btn.danger {
+        color: var(--danger);
+        background: var(--danger-soft);
+      }
+      .icon-btn.danger:hover {
+        background: #fde2e2;
+      }
+      #addColorBtn {
+        align-self: flex-start;
+      }
+
+      .pill-warn {
+        background: var(--warning-soft);
+        color: var(--warning);
+      }
+
+      .toast {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%) translateY(20px);
+        background: #0d1526;
+        color: #fff;
+        padding: 12px 22px;
+        border-radius: 999px;
+        font-size: 13.5px;
+        box-shadow: var(--shadow-lg);
+        z-index: 900;
+        opacity: 0;
+        transition: 0.25s;
+        pointer-events: none;
+      }
+      .toast.show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+      .toast.err {
+        background: var(--danger);
+      }
+
+      @media (max-width: 640px) {
+        .form-grid {
+          grid-template-columns: 1fr;
+        }
+        .header {
+          padding: 12px 16px;
+        }
+        main {
+          padding: 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ===== شاشة الدخول ===== -->
+    <div id="loginScreen">
+      <div class="login-box">
+        <h1><i class="ti ti-lock"></i> إدارة الكتالوج</h1>
+        <p>ادخل الباسورد للمتابعة</p>
+        <input type="password" id="pwInput" placeholder="••••••" autofocus />
+        <button id="loginBtn" onclick="doLogin()">دخول</button>
+        <div id="loginError"></div>
+        <div style="margin-top: 16px; text-align: center">
+          <a
+            href="javascript:void(0)"
+            onclick="_openGasConfig()"
+            style="font-size: 13px; color: #6b7280; text-decoration: underline"
+            >⚙️ إعداد الاتصال بالسيرفر</a
+          >
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════
+         API Client — يستبدل google.script.run بـ fetch()
+         ═══════════════════════════════════════════════════════ -->
+    <!-- رابط الـ GAS بقى في مصدر واحد فقط: src/config.js (شوف الملف ده لو
+         محتاج تغيّر الرابط أو فيه مشكلة اتصال بالسيرفر) -->
+    <script src="/src/config.js"></script>
+    <script src="/src/api/client.js"></script>
+    <script>
+      function _openGasConfig() {
+        var current = (window.GAS && window.GAS.getUrl()) || "";
+        var url = window.prompt(
+          "الصق رابط نشر Apps Script (Web app URL):",
+          current
+        );
+        if (url === null) return;
+        url = url.trim();
+        if (!url) return;
+        window.GAS.setUrl(url);
+        document.getElementById("loginError").textContent =
+          "✅ اتحفظ الرابط. جرّب تسجل الدخول دلوقتي.";
+      }
+    </script>
+
+    <!-- ===== التطبيق ===== -->
+    <div id="app">
+      <div class="header">
+        <h1><i class="ti ti-adjustments"></i> إدارة الكتالوج</h1>
+        <div class="tabs">
+          <button
+            class="tab-btn active"
+            id="tabItemsBtn"
+            onclick="switchTab('items')"
+          >
+            الأصناف
+          </button>
+          <button
+            class="tab-btn"
+            id="tabGroupsBtn"
+            onclick="switchTab('groups')"
+          >
+            المجموعات
+          </button>
+          <button
+            class="tab-btn"
+            id="tabSettingsBtn"
+            onclick="switchTab('settings')"
+          >
+            الإعدادات
+          </button>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px">
+          <button
+            class="theme-toggle-btn"
+            id="themeToggleBtn"
+            onclick="toggleTheme()"
+            title="تبديل الوضع الليلي/النهاري"
+          >
+            <i class="ti ti-moon" id="themeIcon"></i>
+          </button>
+          <a
+            class="btn btn-ghost"
+            href="/"
+            target="_blank"
+            ><i class="ti ti-external-link"></i> فتح الموقع</a
+          >
+        </div>
+      </div>
+
+      <main>
+        <!-- ===== تاب الأصناف ===== -->
+        <div id="itemsTab">
+          <div class="toolbar">
+            <input
+              class="search-input"
+              id="itemsSearch"
+              placeholder="بحث بالكود أو الاسم..."
+              oninput="renderItems()"
+            />
+            <button class="btn btn-primary" onclick="openItemModal()">
+              <i class="ti ti-plus"></i> صنف جديد
+            </button>
+          </div>
+          <div class="card-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>الكود</th>
+                  <th>الاسم</th>
+                  <th>المجموعة</th>
+                  <th>الوحدة</th>
+                  <th>السعر</th>
+                  <th>الكمية المعروضة</th>
+                  <th>المقاسات</th>
+                  <th>الألوان</th>
+                  <th>الحالة</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="itemsBody"></tbody>
+            </table>
+            <div class="empty-state" id="itemsEmpty" style="display: none">
+              مفيش أصناف مطابقة
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== تاب المجموعات ===== -->
+        <div id="groupsTab" style="display: none">
+          <div class="toolbar">
+            <div style="flex: 1"></div>
+            <button class="btn btn-primary" onclick="openGroupModal()">
+              <i class="ti ti-plus"></i> مجموعة جديدة
+            </button>
+          </div>
+          <div class="card-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>الاسم</th>
+                  <th>عدد الأصناف</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="groupsBody"></tbody>
+            </table>
+            <div class="empty-state" id="groupsEmpty" style="display: none">
+              مفيش مجموعات
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== تاب الإعدادات ===== -->
+        <div id="settingsTab" style="display: none">
+          <div class="settings-grid">
+            <!-- بيانات المتجر -->
+            <div class="settings-card">
+              <h3><i class="ti ti-building-store"></i> بيانات المتجر</h3>
+              <p class="settings-hint">
+                البيانات دي بتظهر في أعلى صفحة الكتالوج العام اللي بيشوفها
+                العملاء
+              </p>
+              <div class="form-grid" style="grid-template-columns: 1fr">
+                <div class="form-field">
+                  <label>اسم المتجر</label
+                  ><input id="s_company_name" placeholder="مثال: محل الأزياء" />
+                </div>
+                <div class="form-field">
+                  <label>الوصف المختصر (Tagline)</label
+                  ><input
+                    id="s_tagline"
+                    placeholder="مثال: أحدث صيحات الموضة"
+                  />
+                </div>
+                <div class="form-field">
+                  <label>رابط الشعار (Logo URL)</label
+                  ><input id="s_logo_url" placeholder="https://..." />
+                </div>
+                <div class="form-field">
+                  <label>رقم واتساب المتجر</label
+                  ><input id="s_whatsapp" placeholder="2010xxxxxxxx" />
+                </div>
+              </div>
+              <div class="field-error" id="settingsError"></div>
+              <div class="settings-actions">
+                <button class="btn btn-primary" onclick="saveSettings()">
+                  <i class="ti ti-check"></i> حفظ بيانات المتجر
+                </button>
+              </div>
+            </div>
+
+            <!-- المظهر -->
+            <div class="settings-card">
+              <h3><i class="ti ti-palette"></i> المظهر</h3>
+              <p class="settings-hint">
+                اختر شكل لوحة التحكم — الوضع الليلي بيتحفظ على المتصفح ده بس
+              </p>
+              <div class="checkbox-field" style="margin-bottom: 6px">
+                <input
+                  type="checkbox"
+                  id="s_dark_toggle"
+                  onchange="toggleTheme()"
+                />
+                <label for="s_dark_toggle">تفعيل الوضع الليلي</label>
+              </div>
+            </div>
+
+            <!-- الأمان -->
+            <div class="settings-card danger">
+              <h3><i class="ti ti-shield-lock"></i> تغيير كلمة السر</h3>
+              <p class="settings-hint">
+                كلمة السر دي بتُستخدم للدخول على لوحة التحكم دي — احتفظ بيها في
+                مكان آمن
+              </p>
+              <div class="form-grid" style="grid-template-columns: 1fr">
+                <div class="form-field">
+                  <label>كلمة السر الجديدة</label
+                  ><input
+                    id="s_new_password"
+                    type="password"
+                    placeholder="••••••"
+                  />
+                </div>
+                <div class="form-field">
+                  <label>تأكيد كلمة السر</label
+                  ><input
+                    id="s_new_password2"
+                    type="password"
+                    placeholder="••••••"
+                  />
+                </div>
+              </div>
+              <div class="field-error" id="passwordError"></div>
+              <div class="settings-actions">
+                <button
+                  class="btn btn-danger-ghost"
+                  onclick="changeAdminPassword()"
+                >
+                  <i class="ti ti-key"></i> تحديث كلمة السر
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- ===== مودال الصنف ===== -->
+    <div class="modal-overlay" id="itemModal">
+      <div class="modal-box" style="max-width: 640px">
+        <h2>
+          <i class="ti ti-package"></i>
+          <span id="itemModalTitle">صنف جديد</span>
+        </h2>
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="form-field">
+              <label>الكود *</label><input id="f_code" />
+            </div>
+            <div class="form-field">
+              <label>الاسم *</label><input id="f_name" />
+            </div>
+            <div class="form-field full">
+              <label>الوصف</label
+              ><textarea id="f_description" style="min-height: 44px"></textarea>
+            </div>
+            <div class="form-field">
+              <label>المجموعة</label
+              ><select id="f_group_id"></select>
+            </div>
+            <div class="form-field">
+              <label>الوحدة</label
+              ><select id="f_unit">
+                <option value="قطعة">قطعة</option>
+                <option value="ثري">ثري</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label>سعر البيع</label
+              ><input id="f_selling_price" type="number" step="0.01" />
+            </div>
+            <div class="form-field">
+              <label>الكمية المعروضة</label
+              ><input id="f_pub_qty" type="number" step="1" />
+            </div>
+            <div class="form-field">
+              <label>الحد الأدنى</label
+              ><input id="f_min_qty" type="number" step="1" />
+            </div>
+            <div class="form-field">
+              <label>أقل كمية للطلب (بيتطبق أيًا كان اللون)</label
+              ><input id="f_min_order_qty" type="number" step="1" min="1" />
+            </div>
+            <div class="form-field">
+              <label
+                >مضاعف الكمية (بيتحدد تلقائيًا من عدد المقاسات المختارة
+                تحت)</label
+              ><input id="f_qty_step" type="number" step="1" min="1" readonly />
+            </div>
+            <div class="form-field full">
+              <label
+                >المقاسات المتاحة (وصفية بس — بتتعرض للعميل كمعلومة، من غير ما
+                يختار)</label
+              >
+              <div class="sizes-chips-wrap" id="sizesChipsWrap"></div>
+            </div>
+            <div class="form-field full">
+              <label>رابط الصورة</label
+              ><input id="f_image_url" placeholder="https://..." />
+            </div>
+            <div class="form-field full">
+              <label>الألوان وصور كل لون (اختياري)</label>
+              <div class="colors-editor" id="colorsEditorList"></div>
+              <button
+                type="button"
+                class="btn btn-ghost"
+                id="addColorBtn"
+                onclick="addColorRow()"
+              >
+                <i class="ti ti-plus"></i> إضافة لون
+              </button>
+            </div>
+            <div class="form-field full checkbox-field">
+              <input type="checkbox" id="f_active" checked /><label
+                for="f_active"
+                style="font-weight: 400"
+                >الصنف فعّال (يظهر في الكتالوج)</label
+              >
+            </div>
+          </div>
+          <div class="field-error" id="itemModalError"></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="closeItemModal()">
+            إلغاء
+          </button>
+          <button class="btn btn-primary" onclick="saveItem()">
+            <i class="ti ti-check"></i> حفظ
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== مودال المجموعة ===== -->
+    <div class="modal-overlay" id="groupModal">
+      <div class="modal-box" style="max-width: 400px">
+        <h2>
+          <i class="ti ti-folder"></i>
+          <span id="groupModalTitle">مجموعة جديدة</span>
+        </h2>
+        <div class="modal-body">
+          <div class="form-grid" style="grid-template-columns: 1fr">
+            <div class="form-field">
+              <label>اسم المجموعة *</label><input id="g_name" />
+            </div>
+          </div>
+          <div class="field-error" id="groupModalError"></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="closeGroupModal()">
+            إلغاء
+          </button>
+          <button class="btn btn-primary" onclick="saveGroup()">
+            <i class="ti ti-check"></i> حفظ
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+      // ===== الوضع الليلي — بيتطبق فورًا حتى قبل تسجيل الدخول =====
+      (function initTheme() {
+        var saved = null;
+        try {
+          saved = localStorage.getItem("admin_theme");
+        } catch (e) {}
+        var theme =
+          saved ||
+          (matchMedia("(prefers-color-scheme: dark)").matches
+            ? "dark"
+            : "light");
+        document.documentElement.setAttribute("data-theme", theme);
+      })();
+
+      function _applyThemeUI() {
+        var theme = document.documentElement.getAttribute("data-theme");
+        var icon = document.getElementById("themeIcon");
+        if (icon)
+          icon.className = theme === "dark" ? "ti ti-sun" : "ti ti-moon";
+        var chk = document.getElementById("s_dark_toggle");
+        if (chk) chk.checked = theme === "dark";
+      }
+
+      function toggleTheme() {
+        var current = document.documentElement.getAttribute("data-theme");
+        var next = current === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        try {
+          localStorage.setItem("admin_theme", next);
+        } catch (e) {}
+        _applyThemeUI();
+      }
+
+      document.addEventListener("DOMContentLoaded", _applyThemeUI);
+
+      // ── تحديث أيقونة التاب (favicon) وعنوان الصفحة من اللوجو/اسم
+      //    الشركة المحفوظين في الإعدادات — بتتقرا بدون باسورد
+      //    (نفس الدالة العامة المستخدمة في الكتالوج) عشان يظهروا
+      //    حتى قبل تسجيل الدخول ─────────────────────────────────────
+      function _fixDriveUrl(url) {
+        if (!url) return "";
+        var id = "";
+        var m;
+        m = url.match(/\/file\/d\/([^\/\?]+)/);
+        if (m) id = m[1];
+        if (!id) {
+          m = url.match(/[?&]id=([^&]+)/);
+          if (m) id = m[1];
+        }
+        if (!id) return url;
+        return "https://lh3.googleusercontent.com/d/" + id + "=w500";
+      }
+
+      function _setFavicon(url) {
+        if (!url) return;
+        ["icon", "shortcut icon", "apple-touch-icon"].forEach(function (rel) {
+          var link = document.querySelector('link[rel="' + rel + '"]');
+          if (!link) {
+            link = document.createElement("link");
+            link.rel = rel;
+            document.head.appendChild(link);
+          }
+          link.href = url;
+        });
+      }
+
+      function _loadBrandForFaviconAndTitle() {
+        // بيستخدم getCatalogPublicData لأنها عامة ومتاحة بدون باسورد،
+        // وبترجع companySettings (اسم الشركة + لوجو) اللي محتاجينهم هنا
+        google.script.run
+          .withSuccessHandler(function (res) {
+            var cs = (res && res.companySettings) || {};
+            if (cs.company_name)
+              document.title = "إدارة الكتالوج — " + cs.company_name;
+          })
+          .withFailureHandler(function () {
+            /* صامت — الفافيكون تحسين شكلي مش وظيفة أساسية */
+          })
+          .getCatalogPublicData("", "");
+      }
+      document.addEventListener(
+        "DOMContentLoaded",
+        _loadBrandForFaviconAndTitle
+      );
+
+      var PW = "";
+      var ITEMS = [];
+      var GROUPS = [];
+      var currentEditItemId = null;
+      var currentColors = []; // [{name, hex, images:[url,...]}]
+      var currentSizes = []; // ["L","XL","XXL"] — وصفية بس
+      var SIZE_OPTIONS = ["S", "M", "L", "XL", "XXL", "3XL", "4XL", "5XL"];
+      var currentEditGroupId = null;
+
+      // ===== تسجيل الدخول =====
+      document
+        .getElementById("pwInput")
+        .addEventListener("keydown", function (e) {
+          if (e.key === "Enter") doLogin();
+        });
+
+      function doLogin() {
+        var pw = document.getElementById("pwInput").value;
+        document.getElementById("loginError").textContent = "";
+        var btn = document.getElementById("loginBtn");
+        btn.disabled = true;
+        btn.innerHTML = '<span class="btn-spinner"></span> جاري الدخول...';
+        google.script.run
+          .withSuccessHandler(function (res) {
+            btn.disabled = false;
+            btn.innerHTML = "دخول";
+            if (res.success) {
+              PW = pw;
+              document.getElementById("loginScreen").style.display = "none";
+              document.getElementById("app").style.display = "block";
+              // ⚡ البيانات جاية جاهزة مع رد تسجيل الدخول نفسه، فمفيش
+              // انتظار تاني — العرض بيحصل فورًا
+              ITEMS = res.items || [];
+              GROUPS = res.groups || [];
+              renderItems();
+              renderGroups();
+            } else {
+              document.getElementById("loginError").textContent =
+                res.message || "باسورد غلط";
+            }
+          })
+          .withFailureHandler(function (err) {
+            btn.disabled = false;
+            btn.innerHTML = "دخول";
+            document.getElementById("loginError").textContent =
+              "خطأ: " + err.message;
+          })
+          .adminLogin(pw);
+      }
+
+      // ===== تحميل البيانات (تستخدم للتحديث اليدوي بعد أول دخول) =====
+      function loadData() {
+        _setItemsLoading(true);
+        google.script.run
+          .withSuccessHandler(function (res) {
+            _setItemsLoading(false);
+            if (!res.success) {
+              showToast(res.message, true);
+              return;
+            }
+            ITEMS = res.items || [];
+            GROUPS = res.groups || [];
+            renderItems();
+            renderGroups();
+          })
+          .withFailureHandler(function (err) {
+            _setItemsLoading(false);
+            showToast("خطأ: " + err.message, true);
+          })
+          .adminGetData(PW);
+      }
+
+      // سكيليتون بسيط في جدول الأصناف وقت التحديث اليدوي، عشان
+      // الشاشة متفضلش فاضية ساكنة وهي بتجيب بيانات من الشيت
+      function _setItemsLoading(isLoading) {
+        var body = document.getElementById("itemsBody");
+        if (!body) return;
+        if (isLoading) {
+          var rows = "";
+          for (var i = 0; i < 6; i++) {
+            rows +=
+              '<tr class="skeleton-row"><td colspan="8">' +
+              '<div class="skeleton-bar"></div></td></tr>';
+          }
+          body.innerHTML = rows;
+          document.getElementById("itemsEmpty").style.display = "none";
+        }
+      }
+
+      // ===== التابات =====
+      function switchTab(t) {
+        document.getElementById("itemsTab").style.display =
+          t === "items" ? "" : "none";
+        document.getElementById("groupsTab").style.display =
+          t === "groups" ? "" : "none";
+        document.getElementById("settingsTab").style.display =
+          t === "settings" ? "" : "none";
+        document
+          .getElementById("tabItemsBtn")
+          .classList.toggle("active", t === "items");
+        document
+          .getElementById("tabGroupsBtn")
+          .classList.toggle("active", t === "groups");
+        document
+          .getElementById("tabSettingsBtn")
+          .classList.toggle("active", t === "settings");
+        if (t === "settings") loadSettings();
+      }
+
+      // ===== عرض الأصناف =====
+      function renderItems() {
+        var q = document
+          .getElementById("itemsSearch")
+          .value.trim()
+          .toLowerCase();
+        var filtered = ITEMS.filter(function (it) {
+          if (!q) return true;
+          return (
+            String(it.code || "")
+              .toLowerCase()
+              .indexOf(q) !== -1 ||
+            String(it.name || "")
+              .toLowerCase()
+              .indexOf(q) !== -1
+          );
+        });
+        var body = document.getElementById("itemsBody");
+        body.innerHTML = "";
+        document.getElementById("itemsEmpty").style.display = filtered.length
+          ? "none"
+          : "block";
+        filtered.forEach(function (it) {
+          var g = GROUPS.find(function (x) {
+            return String(x.id) === String(it.group_id);
+          });
+          var isActive = String(it.active).toLowerCase() !== "false";
+          var sizesList = String(it.sizes || "")
+            .split(",")
+            .map(function (s) {
+              return s.trim();
+            })
+            .filter(Boolean)
+            .sort(function (a, b) {
+              var ia = SIZE_OPTIONS.indexOf(a);
+              var ib = SIZE_OPTIONS.indexOf(b);
+              if (ia === -1) ia = SIZE_OPTIONS.length;
+              if (ib === -1) ib = SIZE_OPTIONS.length;
+              return ia - ib;
+            });
+          var sizesHtml = sizesList.length
+            ? sizesList
+                .map(function (s) {
+                  return (
+                    '<span class="pill" style="margin-inline-end:4px">' +
+                    esc(s) +
+                    "</span>"
+                  );
+                })
+                .join("")
+            : "—";
+          var colorsList = parseColorsJson(it.colors_json);
+          var colorsHtml = colorsList.length
+            ? colorsList
+                .map(function (c) {
+                  return (
+                    '<span title="' +
+                    esc(c.name) +
+                    '" style="display:inline-block;width:16px;height:16px;border-radius:50%;margin-inline-end:4px;border:1px solid rgba(255,255,255,.3);vertical-align:middle;background:' +
+                    esc(c.hex || "#94a3b8") +
+                    '"></span>'
+                  );
+                })
+                .join("")
+            : "—";
+          var tr = document.createElement("tr");
+          tr.innerHTML =
+            "<td>" +
+            esc(it.code) +
+            "</td>" +
+            "<td>" +
+            esc(it.name) +
+            "</td>" +
+            "<td>" +
+            esc(g ? g.name : "—") +
+            "</td>" +
+            "<td>" +
+            esc(it.unit || "—") +
+            "</td>" +
+            "<td>" +
+            Number(it.selling_price || 0).toLocaleString("ar-EG") +
+            "</td>" +
+            "<td>" +
+            Number(it.pub_qty || 0).toLocaleString("ar-EG") +
+            "</td>" +
+            "<td>" +
+            sizesHtml +
+            "</td>" +
+            "<td>" +
+            colorsHtml +
+            "</td>" +
+            '<td><span class="pill ' +
+            (isActive ? "pill-ok" : "pill-off") +
+            '">' +
+            (isActive ? "فعّال" : "موقوف") +
+            "</span></td>" +
+            '<td><div class="row-actions">' +
+            '<button class="icon-btn" title="تعديل" onclick="openItemModal(\'' +
+            it.id +
+            '\')"><i class="ti ti-pencil"></i></button>' +
+            '<button class="icon-btn danger" title="حذف" onclick="deleteItem(\'' +
+            it.id +
+            '\')"><i class="ti ti-trash"></i></button>' +
+            "</div></td>";
+          body.appendChild(tr);
+        });
+      }
+
+      // ===== عرض المجموعات =====
+      function renderGroups() {
+        var body = document.getElementById("groupsBody");
+        body.innerHTML = "";
+        document.getElementById("groupsEmpty").style.display = GROUPS.length
+          ? "none"
+          : "block";
+        GROUPS.forEach(function (g) {
+          var cnt = ITEMS.filter(function (it) {
+            return String(it.group_id) === String(g.id);
+          }).length;
+          var tr = document.createElement("tr");
+          tr.innerHTML =
+            "<td>" +
+            esc(g.name) +
+            "</td>" +
+            "<td>" +
+            cnt +
+            "</td>" +
+            '<td><div class="row-actions">' +
+            '<button class="icon-btn" title="تعديل" onclick="openGroupModal(\'' +
+            g.id +
+            '\')"><i class="ti ti-pencil"></i></button>' +
+            '<button class="icon-btn danger" title="حذف" onclick="deleteGroup(\'' +
+            g.id +
+            '\')"><i class="ti ti-trash"></i></button>' +
+            "</div></td>";
+          body.appendChild(tr);
+        });
+      }
+
+      // ===== مودال الصنف =====
+      function openItemModal(id) {
+        currentEditItemId = id || null;
+        document.getElementById("itemModalError").textContent = "";
+        var groupSel = document.getElementById("f_group_id");
+        groupSel.innerHTML = GROUPS.map(function (g) {
+          return '<option value="' + g.id + '">' + esc(g.name) + "</option>";
+        }).join("");
+
+        if (id) {
+          var it = ITEMS.find(function (x) {
+            return String(x.id) === String(id);
+          });
+          document.getElementById("itemModalTitle").textContent = "تعديل صنف";
+          document.getElementById("f_code").value = it.code || "";
+          document.getElementById("f_name").value = it.name || "";
+          document.getElementById("f_description").value = it.description || "";
+          groupSel.value = it.group_id || "";
+          document.getElementById("f_unit").value =
+            it.unit === "ثري" ? "ثري" : "قطعة";
+          document.getElementById("f_selling_price").value =
+            it.selling_price || "";
+          document.getElementById("f_pub_qty").value = it.pub_qty || "";
+          document.getElementById("f_min_qty").value = it.min_qty || "";
+          document.getElementById("f_min_order_qty").value =
+            it.min_order_qty || "";
+          document.getElementById("f_image_url").value = it.image_url || "";
+          currentColors = parseColorsJson(it.colors_json);
+          currentSizes = String(it.sizes || "")
+            .split(",")
+            .map(function (s) {
+              return s.trim();
+            })
+            .filter(Boolean);
+          document.getElementById("f_active").checked =
+            String(it.active).toLowerCase() !== "false";
+        } else {
+          document.getElementById("itemModalTitle").textContent = "صنف جديد";
+          [
+            "f_code",
+            "f_name",
+            "f_description",
+            "f_selling_price",
+            "f_pub_qty",
+            "f_min_qty",
+            "f_min_order_qty",
+            "f_qty_step",
+            "f_image_url",
+          ].forEach(function (id2) {
+            document.getElementById(id2).value = "";
+          });
+          document.getElementById("f_unit").value = "قطعة";
+          currentColors = [];
+          currentSizes = [];
+          document.getElementById("f_active").checked = true;
+        }
+        renderColorsEditor();
+        renderSizesChips();
+        document.getElementById("itemModal").classList.add("show");
+      }
+      function closeItemModal() {
+        document.getElementById("itemModal").classList.remove("show");
+      }
+
+      function saveItem() {
+        var payload = {
+          id: currentEditItemId || "",
+          code: document.getElementById("f_code").value.trim(),
+          name: document.getElementById("f_name").value.trim(),
+          description: document.getElementById("f_description").value.trim(),
+          group_id: document.getElementById("f_group_id").value,
+          unit: document.getElementById("f_unit").value.trim(),
+          selling_price: Number(
+            document.getElementById("f_selling_price").value || 0,
+          ),
+          pub_qty: Number(document.getElementById("f_pub_qty").value || 0),
+          min_qty: Number(document.getElementById("f_min_qty").value || 0),
+          min_order_qty: Number(
+            document.getElementById("f_min_order_qty").value || 0,
+          ),
+          qty_step: Number(document.getElementById("f_qty_step").value || 0),
+          sizes: currentSizes.join(","),
+          image_url: document.getElementById("f_image_url").value.trim(),
+          colors_json: serializeColorsJson(),
+          active: document.getElementById("f_active").checked,
+        };
+        if (!payload.code) {
+          document.getElementById("itemModalError").textContent = "الكود مطلوب";
+          return;
+        }
+        if (!payload.name) {
+          document.getElementById("itemModalError").textContent = "الاسم مطلوب";
+          return;
+        }
+
+        google.script.run
+          .withSuccessHandler(function (res) {
+            if (!res.success) {
+              document.getElementById("itemModalError").textContent =
+                res.message;
+              return;
+            }
+            closeItemModal();
+            showToast("اتحفظ بنجاح");
+            loadData();
+          })
+          .withFailureHandler(function (err) {
+            document.getElementById("itemModalError").textContent = err.message;
+          })
+          .adminSaveItem(PW, payload);
+      }
+
+      function deleteItem(id) {
+        if (!confirm("متأكد إنك عاوز تمسح الصنف ده؟")) return;
+        google.script.run
+          .withSuccessHandler(function (res) {
+            if (!res.success) {
+              showToast(res.message, true);
+              return;
+            }
+            showToast("اتمسح بنجاح");
+            loadData();
+          })
+          .withFailureHandler(function (err) {
+            showToast("خطأ: " + err.message, true);
+          })
+          .adminDeleteItem(PW, id);
+      }
+
+      // ===== مودال المجموعة =====
+      function openGroupModal(id) {
+        currentEditGroupId = id || null;
+        document.getElementById("groupModalError").textContent = "";
+        if (id) {
+          var g = GROUPS.find(function (x) {
+            return String(x.id) === String(id);
+          });
+          document.getElementById("groupModalTitle").textContent =
+            "تعديل مجموعة";
+          document.getElementById("g_name").value = g.name || "";
+        } else {
+          document.getElementById("groupModalTitle").textContent =
+            "مجموعة جديدة";
+          document.getElementById("g_name").value = "";
+        }
+        document.getElementById("groupModal").classList.add("show");
+      }
+      function closeGroupModal() {
+        document.getElementById("groupModal").classList.remove("show");
+      }
+
+      function saveGroup() {
+        var name = document.getElementById("g_name").value.trim();
+        if (!name) {
+          document.getElementById("groupModalError").textContent =
+            "الاسم مطلوب";
+          return;
+        }
+        var payload = { id: currentEditGroupId || "", name: name };
+        google.script.run
+          .withSuccessHandler(function (res) {
+            if (!res.success) {
+              document.getElementById("groupModalError").textContent =
+                res.message;
+              return;
+            }
+            closeGroupModal();
+            showToast("اتحفظت بنجاح");
+            loadData();
+          })
+          .withFailureHandler(function (err) {
+            document.getElementById("groupModalError").textContent =
+              err.message;
+          })
+          .adminSaveGroup(PW, payload);
+      }
+
+      function deleteGroup(id) {
+        if (!confirm("متأكد إنك عاوز تمسح المجموعة دي؟")) return;
+        google.script.run
+          .withSuccessHandler(function (res) {
+            if (!res.success) {
+              showToast(res.message, true);
+              return;
+            }
+            showToast("اتمسحت بنجاح");
+            loadData();
+          })
+          .withFailureHandler(function (err) {
+            showToast("خطأ: " + err.message, true);
+          })
+          .adminDeleteGroup(PW, id);
+      }
+
+      // ===== الإعدادات =====
+      function loadSettings() {
+        _applyThemeUI();
+        google.script.run
+          .withSuccessHandler(function (res) {
+            if (!res.success) {
+              showToast(res.message, true);
+              return;
+            }
+            var s = res.settings || {};
+            document.getElementById("s_company_name").value =
+              s.company_name || "";
+            document.getElementById("s_tagline").value = s.tagline || "";
+            document.getElementById("s_logo_url").value = s.logo_url || "";
+            document.getElementById("s_whatsapp").value = s.whatsapp || "";
+          })
+          .withFailureHandler(function (err) {
+            showToast("خطأ: " + err.message, true);
+          })
+          .adminGetSettings(PW);
+      }
+
+      function saveSettings() {
+        document.getElementById("settingsError").textContent = "";
+        var payload = {
+          company_name: document.getElementById("s_company_name").value.trim(),
+          tagline: document.getElementById("s_tagline").value.trim(),
+          logo_url: document.getElementById("s_logo_url").value.trim(),
+          whatsapp: document.getElementById("s_whatsapp").value.trim(),
+        };
+        google.script.run
+          .withSuccessHandler(function (res) {
+            if (!res.success) {
+              document.getElementById("settingsError").textContent =
+                res.message;
+              return;
+            }
+            showToast("اتحفظت بيانات المتجر بنجاح");
+          })
+          .withFailureHandler(function (err) {
+            document.getElementById("settingsError").textContent = err.message;
+          })
+          .adminSaveSettings(PW, payload);
+      }
+
+      function changeAdminPassword() {
+        var errEl = document.getElementById("passwordError");
+        errEl.textContent = "";
+        var p1 = document.getElementById("s_new_password").value;
+        var p2 = document.getElementById("s_new_password2").value;
+        if (!p1 || p1.length < 4) {
+          errEl.textContent = "كلمة السر لازم تكون ٤ حروف/أرقام على الأقل";
+          return;
+        }
+        if (p1 !== p2) {
+          errEl.textContent = "كلمتا السر مش متطابقتين";
+          return;
+        }
+        if (
+          !confirm(
+            "متأكد إنك عاوز تغيّر كلمة السر؟ هتحتاجها في تسجيل الدخول الجاي",
+          )
+        )
+          return;
+        google.script.run
+          .withSuccessHandler(function (res) {
+            if (!res.success) {
+              errEl.textContent = res.message;
+              return;
+            }
+            PW = p1;
+            document.getElementById("s_new_password").value = "";
+            document.getElementById("s_new_password2").value = "";
+            showToast("اتغيّرت كلمة السر بنجاح");
+          })
+          .withFailureHandler(function (err) {
+            errEl.textContent = err.message;
+          })
+          .adminChangePassword(PW, p1);
+      }
+
+      // ===== محرر الألوان =====
+      function parseColorsJson(raw) {
+        if (!raw) return [];
+        try {
+          var arr = JSON.parse(raw);
+          if (!Array.isArray(arr)) return [];
+          return arr.filter(Boolean).map(function (c) {
+            if (typeof c !== "object")
+              return { name: String(c), hex: "", images: [] };
+            var images = Array.isArray(c.images)
+              ? c.images.map(String).filter(Boolean)
+              : c.image
+                ? [String(c.image)]
+                : [];
+            return {
+              name: String(c.name || ""),
+              hex: String(c.hex || "#94a3b8"),
+              images: images,
+            };
+          });
+        } catch (e) {
+          return [];
+        }
+      }
+
+      function serializeColorsJson() {
+        var clean = currentColors
+          .map(function (c) {
+            return {
+              name: (c.name || "").trim(),
+              hex: c.hex || "#94a3b8",
+              images: (c.images || [])
+                .map(function (u) {
+                  return u.trim();
+                })
+                .filter(Boolean),
+            };
+          })
+          .filter(function (c) {
+            return c.name;
+          });
+        return clean.length ? JSON.stringify(clean) : "";
+      }
+
+      function renderColorsEditor() {
+        var wrap = document.getElementById("colorsEditorList");
+        if (!currentColors.length) {
+          wrap.innerHTML =
+            '<div class="colors-empty">لا توجد ألوان مضافة — دوس "إضافة لون"</div>';
+          return;
+        }
+        wrap.innerHTML = currentColors
+          .map(function (c, ci) {
+            var imgsHtml = (c.images || [])
+              .map(function (url, ii) {
+                return (
+                  '<div class="img-link-row">' +
+                  '<input type="text" value="' +
+                  esc(url) +
+                  '" placeholder="https://رابط-صورة-اللون" ' +
+                  'onchange="updateColorImage(' +
+                  ci +
+                  "," +
+                  ii +
+                  ',this.value)">' +
+                  '<button type="button" class="icon-btn danger" onclick="removeColorImage(' +
+                  ci +
+                  "," +
+                  ii +
+                  ')" title="حذف الرابط"><i class="ti ti-x"></i></button>' +
+                  "</div>"
+                );
+              })
+              .join("");
+            return (
+              '<div class="color-row">' +
+              '<div class="color-row-head">' +
+              '<input type="color" class="color-hex-input" value="' +
+              esc(c.hex || "#94a3b8") +
+              '" ' +
+              'onchange="updateColorField(' +
+              ci +
+              ",'hex',this.value)\">" +
+              '<input type="text" class="color-name-input" placeholder="اسم اللون (مثال: أحمر)" value="' +
+              esc(c.name || "") +
+              '" ' +
+              'onchange="updateColorField(' +
+              ci +
+              ",'name',this.value)\">" +
+              '<button type="button" class="icon-btn danger" onclick="removeColorRow(' +
+              ci +
+              ')" title="حذف اللون"><i class="ti ti-trash"></i></button>' +
+              "</div>" +
+              '<div class="color-images-list">' +
+              imgsHtml +
+              "</div>" +
+              '<button type="button" class="btn btn-ghost btn-sm" onclick="addColorImage(' +
+              ci +
+              ')"><i class="ti ti-photo-plus"></i> إضافة رابط صورة لنفس اللون</button>' +
+              "</div>"
+            );
+          })
+          .join("");
+      }
+
+      // ===== محرر المقاسات (وصفي بس) =====
+      function _syncQtyStepFromSizes() {
+        var el = document.getElementById("f_qty_step");
+        if (el) el.value = currentSizes.length > 0 ? currentSizes.length : "";
+      }
+      function renderSizesChips() {
+        var wrap = document.getElementById("sizesChipsWrap");
+        wrap.innerHTML = SIZE_OPTIONS.map(function (sz) {
+          var checked = currentSizes.indexOf(sz) !== -1;
+          return (
+            '<label class="group-chip' +
+            (checked ? " checked" : "") +
+            '" data-size="' +
+            esc(sz) +
+            '">' +
+            '<input type="checkbox" ' +
+            (checked ? "checked" : "") +
+            " onchange=\"toggleSizeChip('" +
+            esc(sz) +
+            "',this)\">" +
+            esc(sz) +
+            "</label>"
+          );
+        }).join("");
+        _syncQtyStepFromSizes();
+      }
+      function toggleSizeChip(sz, checkboxEl) {
+        var idx = currentSizes.indexOf(sz);
+        if (checkboxEl.checked) {
+          if (idx === -1) currentSizes.push(sz);
+        } else {
+          if (idx !== -1) currentSizes.splice(idx, 1);
+        }
+        currentSizes.sort(function (a, b) {
+          var ia = SIZE_OPTIONS.indexOf(a);
+          var ib = SIZE_OPTIONS.indexOf(b);
+          if (ia === -1) ia = SIZE_OPTIONS.length;
+          if (ib === -1) ib = SIZE_OPTIONS.length;
+          return ia - ib;
+        });
+        checkboxEl
+          .closest(".group-chip")
+          .classList.toggle("checked", checkboxEl.checked);
+        _syncQtyStepFromSizes();
+      }
+
+      function addColorRow() {
+        currentColors.push({ name: "", hex: "#94a3b8", images: [] });
+        renderColorsEditor();
+      }
+      function removeColorRow(ci) {
+        currentColors.splice(ci, 1);
+        renderColorsEditor();
+      }
+      function updateColorField(ci, field, val) {
+        currentColors[ci][field] = val;
+      }
+      function addColorImage(ci) {
+        currentColors[ci].images.push("");
+        renderColorsEditor();
+      }
+      function removeColorImage(ci, ii) {
+        currentColors[ci].images.splice(ii, 1);
+        renderColorsEditor();
+      }
+      function updateColorImage(ci, ii, val) {
+        currentColors[ci].images[ii] = val;
+      }
+
+      // ===== أدوات مساعدة =====
+      function esc(s) {
+        return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+          return {
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#39;",
+          }[c];
+        });
+      }
+      var toastTimer = null;
+      function showToast(msg, isErr) {
+        var t = document.getElementById("toast");
+        t.textContent = msg;
+        t.className = "toast show" + (isErr ? " err" : "");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () {
+          t.classList.remove("show");
+        }, 2600);
+      }
+
+      // إغلاق المودال بالضغط بره
+      document.querySelectorAll(".modal-overlay").forEach(function (ov) {
+        ov.addEventListener("click", function (e) {
+          if (e.target === ov) ov.classList.remove("show");
+        });
+      });
+    </script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function () {
+          navigator.serviceWorker.register("/sw.js").catch(function (err) {
+            console.warn("Service worker registration failed:", err);
+          });
+        });
+      }
+    </script>
+  </body>
+</html>

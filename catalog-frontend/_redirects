@@ -1,8 +1,8 @@
-# كتالوج عام — Netlify Redirects
+# الدومين الرئيسي (/) = الكتالوج العام لكل الزوار (زي أمازون)
+# لوحة الإدارة وإضافة المنتجات على /admin
 
-# اختصارات بدون .html
-/catalog   /catalog.html   200
-/admin     /index.html     200
+/admin        /admin/index.html   200
 
-# الصفحة الرئيسية (بدون مسار) = لوحة الإدارة
-/          /index.html     200
+# روابط قديمة → الصفحة الرئيسية (أي ?link= أو ?groups= قديم بيتجاهل)
+/catalog        /   301
+/catalog.html   /   301

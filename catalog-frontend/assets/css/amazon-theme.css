@@ -411,3 +411,184 @@
     font-size: 13px;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   مميزات الكروت (سعر قبل/بعد، شارات، الأعلى طلبًا)
+   بتستخدم ألوان الموقع الحالية (var(--danger) / var(--text2)...) بدون ألوان جديدة
+   ═══════════════════════════════════════════════════════════════ */
+.card-price-block { display: flex; flex-direction: column; gap: 2px; }
+.card-price.has-discount { color: var(--danger); }
+.card-old-row { font-size: 12px; color: var(--text2); line-height: 1.5; }
+.card-old-price { color: var(--text3); text-decoration: line-through; font-weight: 400; }
+.card-save { color: var(--danger); font-weight: 600; font-size: 12px; }
+
+.card-tags {
+  position: absolute; top: 8px; left: 8px; z-index: 3;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  pointer-events: none;
+}
+.card-tag {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 11px; font-weight: 700; line-height: 1;
+  padding: 4px 8px; border-radius: 4px; color: #fff;
+}
+.tag-discount { background: var(--danger); }
+.tag-top { background: var(--text); }
+.tag-low { background: var(--warning); }
+.card-orders { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.card-orders i { font-size: 13px; vertical-align: -2px; }
+
+/* شريط الأعلى طلبًا */
+.top-strip {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 14px 14px 8px; margin-bottom: 18px;
+}
+.top-strip-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.top-strip-head h2 { font-size: 18px; font-weight: 700; margin: 0; }
+.top-strip-head h2 i { vertical-align: -2px; }
+.top-strip-head button {
+  background: none; border: 0; color: var(--primary); font: inherit; font-size: 13px; cursor: pointer;
+}
+.top-strip-head button:hover { text-decoration: underline; color: var(--primary-dark); }
+.top-strip-row {
+  display: flex; gap: 12px; overflow-x: auto; padding-bottom: 10px;
+  scroll-snap-type: x proximity; scrollbar-width: thin;
+}
+.top-card {
+  position: relative; flex: 0 0 160px; scroll-snap-align: start; cursor: pointer;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.top-rank {
+  position: absolute; top: 0; inset-inline-start: 0; z-index: 2;
+  min-width: 24px; height: 24px; padding: 0 6px; border-radius: 4px;
+  background: var(--text); color: #fff; font-size: 12px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.top-img {
+  aspect-ratio: 1; background: #fff; border-radius: 6px; display: flex;
+  align-items: center; justify-content: center; overflow: hidden;
+}
+.top-img img { width: 100%; height: 100%; object-fit: contain; padding: 8px; box-sizing: border-box; }
+.top-name {
+  font-size: 13px; line-height: 1.4; display: -webkit-box;
+  -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.top-card:hover .top-name { color: var(--primary-dark); }
+.top-price { font-size: 14px; font-weight: 600; }
+@media (max-width: 768px) {
+  .top-card { flex-basis: 132px; }
+  .top-strip { padding: 10px 10px 4px; }
+}
+
+/* الموبايل: الكارت أفقي والصورة صغيرة — الشارات تتحط أسفل الصورة وبحجم أصغر */
+@media (max-width: 768px) {
+  .card-tags {
+    top: auto; bottom: 4px; left: 4px; right: 4px;
+    flex-direction: row; flex-wrap: wrap; gap: 3px;
+  }
+  .card-tag { font-size: 10px; padding: 3px 6px; }
+  .tag-low { display: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   دفعة المميزات الثانية: مفضلة، فلتر سعر، بحث ذكي، جملة، شحن مجاني
+   (كلها بألوان الموقع الحالية)
+   ═══════════════════════════════════════════════════════════════ */
+.tag-new { background: var(--success); }
+.top-rank-deal { background: var(--danger); }
+
+.card-tier { font-size: 12px; color: var(--primary); margin-top: 2px; }
+.card-tier i { font-size: 13px; vertical-align: -2px; }
+
+/* المفضلة */
+.card-footer { display: flex; align-items: center; gap: 8px; }
+.card-footer .btn-order { flex: 1; }
+.btn-fav {
+  flex: 0 0 38px; width: 38px; height: 38px; border-radius: 50%;
+  background: transparent; border: 1px solid var(--border); color: var(--text2);
+  cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 18px; padding: 0;
+}
+.btn-fav:hover { border-color: var(--danger); color: var(--danger); }
+.btn-fav.is-fav, .ma-btn.is-fav { color: var(--danger); border-color: var(--danger); }
+.fav-header-btn {
+  position: relative; background: transparent; border: 1px solid #485769; color: #fff;
+  border-radius: 6px; height: 36px; min-width: 36px; padding: 0 8px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-size: 16px;
+}
+.fav-header-btn:hover, .fav-header-btn.active { border-color: #fff; background: rgba(255,255,255,.08); }
+.fav-header-btn.active i { color: var(--danger); }
+.fav-header-count { font-size: 12px; font-weight: 700; }
+.fav-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 14px; margin-bottom: 14px; font-weight: 700;
+}
+.fav-bar button {
+  background: var(--success); color: #fff; border: 0; border-radius: 6px; padding: 8px 14px;
+  font: inherit; font-size: 13px; cursor: pointer;
+}
+
+/* اقتراحات البحث */
+.search-wrap { position: relative; }
+.search-suggest {
+  position: absolute; top: calc(100% + 4px); inset-inline: 0; z-index: 60;
+  background: var(--surface); color: var(--text); border: 1px solid var(--border);
+  border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.18); overflow: hidden;
+}
+.sg-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 14px; cursor: pointer; font-size: 14px;
+}
+.sg-item:hover { background: var(--surface2); }
+.sg-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sg-price { color: var(--text2); font-size: 13px; flex-shrink: 0; }
+
+/* فلتر السعر */
+.price-filter { display: flex; align-items: center; gap: 6px; padding: 4px 14px 8px; }
+.price-filter input {
+  flex: 1; min-width: 0; height: 36px; border: 1px solid var(--border); border-radius: 6px;
+  padding: 0 8px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px;
+}
+.deals-check { display: flex; align-items: center; gap: 8px; padding: 0 14px 12px; font-size: 13px; cursor: pointer; }
+
+/* نافذة التفاصيل */
+.modal-actions { display: flex; gap: 8px; margin-bottom: 12px; }
+.ma-btn {
+  display: inline-flex; align-items: center; gap: 6px; background: transparent;
+  border: 1px solid var(--border); color: var(--text2); border-radius: 100px;
+  padding: 7px 14px; font: inherit; font-size: 13px; cursor: pointer;
+}
+.ma-btn:hover { border-color: var(--text2); color: var(--text); }
+.tiers-box { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 16px; overflow: hidden; }
+.tiers-title { background: var(--surface2); padding: 8px 12px; font-size: 13px; font-weight: 700; }
+.tiers-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tiers-table th, .tiers-table td { padding: 8px 12px; text-align: start; border-top: 1px solid var(--border); }
+.tiers-table th { color: var(--text2); font-weight: 600; border-top: 0; }
+.similar-wrap { margin-top: 18px; }
+.similar-strip { margin-bottom: 0; padding: 12px 12px 4px; }
+.similar-strip .top-strip-head h2 { font-size: 15px; }
+.similar-strip .top-card { flex-basis: 120px; }
+
+/* السلة */
+.cart-item-price { font-size: 12.5px; color: var(--text2); margin: 2px 0; }
+.cart-item-price b { color: var(--text); }
+.cart-ship { font-size: 13px; margin-bottom: 10px; }
+.ship-ok { color: var(--success); font-weight: 700; }
+.ship-bar { height: 6px; background: var(--border); border-radius: 100px; margin-top: 6px; overflow: hidden; }
+.ship-fill { height: 100%; background: var(--primary); border-radius: 100px; transition: width .3s; }
+.ship-fill.done { background: var(--success); }
+
+@media (max-width: 768px) {
+  .fav-header-btn { height: 36px; }
+  .fav-header-count:empty { display: none; }
+}
+
+/* القلب المملوء: مجموعة الأيقونات المحلية فيها القلب الفاضي بس، فبنبدّله بحرف ♥ */
+.is-fav > i.ti::before,
+.fav-header-btn.has-favs > i.ti::before,
+.fav-header-btn.active > i.ti::before {
+  content: "\2665";
+  font-family: system-ui, sans-serif;
+}
+.fav-header-btn.has-favs > i.ti { color: var(--danger); }

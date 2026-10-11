@@ -907,6 +907,14 @@
                   <label>رقم واتساب المتجر</label
                   ><input id="s_whatsapp" placeholder="2010xxxxxxxx" />
                 </div>
+                <div class="form-field">
+                  <label>حد الشحن المجاني (إجمالي السلة بالجنيه — 0 للإيقاف)</label
+                  ><input id="s_free_ship_min" type="number" min="0" placeholder="مثال: 1000" />
+                </div>
+                <div class="form-field">
+                  <label>نص الشحن المجاني (اختياري)</label
+                  ><input id="s_free_ship_note" placeholder="مثال: شحن مجاني" />
+                </div>
               </div>
               <div class="field-error" id="settingsError"></div>
               <div class="settings-actions">
@@ -1005,6 +1013,16 @@
             <div class="form-field">
               <label>سعر البيع</label
               ><input id="f_selling_price" type="number" step="0.01" />
+            </div>
+            <div class="form-field">
+              <label>السعر الأصلي قبل الخصم (اختياري)</label
+              ><input id="f_old_price" type="number" step="0.01" min="0" />
+            </div>
+            <div class="form-field" style="grid-column: 1 / -1">
+              <label
+                >أسعار الجملة المتدرجة (اختياري) — الشكل: كمية:سعر، مفصولة
+                بفاصلة. مثال: 10:90,50:80</label
+              ><input id="f_tiers" placeholder="10:90,50:80" />
             </div>
             <div class="form-field">
               <label>الكمية المعروضة</label
@@ -1452,6 +1470,8 @@
             it.unit === "ثري" ? "ثري" : "قطعة";
           document.getElementById("f_selling_price").value =
             it.selling_price || "";
+          document.getElementById("f_old_price").value = it.old_price || "";
+          document.getElementById("f_tiers").value = it.tiers || "";
           document.getElementById("f_pub_qty").value = it.pub_qty || "";
           document.getElementById("f_min_qty").value = it.min_qty || "";
           document.getElementById("f_min_order_qty").value =
@@ -1473,6 +1493,8 @@
             "f_name",
             "f_description",
             "f_selling_price",
+            "f_old_price",
+            "f_tiers",
             "f_pub_qty",
             "f_min_qty",
             "f_min_order_qty",
@@ -1505,6 +1527,11 @@
           selling_price: Number(
             document.getElementById("f_selling_price").value || 0,
           ),
+          old_price: Number(document.getElementById("f_old_price").value || 0),
+          tiers: document
+            .getElementById("f_tiers")
+            .value.replace(/\s+/g, "")
+            .replace(/،/g, ","),
           pub_qty: Number(document.getElementById("f_pub_qty").value || 0),
           min_qty: Number(document.getElementById("f_min_qty").value || 0),
           min_order_qty: Number(
@@ -1639,6 +1666,10 @@
             document.getElementById("s_tagline").value = s.tagline || "";
             document.getElementById("s_logo_url").value = s.logo_url || "";
             document.getElementById("s_whatsapp").value = s.whatsapp || "";
+            document.getElementById("s_free_ship_min").value =
+              s.free_ship_min || "";
+            document.getElementById("s_free_ship_note").value =
+              s.free_ship_note || "";
           })
           .withFailureHandler(function (err) {
             showToast("خطأ: " + err.message, true);
@@ -1653,6 +1684,8 @@
           tagline: document.getElementById("s_tagline").value.trim(),
           logo_url: document.getElementById("s_logo_url").value.trim(),
           whatsapp: document.getElementById("s_whatsapp").value.trim(),
+          free_ship_min: document.getElementById("s_free_ship_min").value.trim(),
+          free_ship_note: document.getElementById("s_free_ship_note").value.trim(),
         };
         google.script.run
           .withSuccessHandler(function (res) {

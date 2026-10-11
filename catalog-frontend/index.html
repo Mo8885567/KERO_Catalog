@@ -3590,6 +3590,7 @@
           <button class="search-clear" id="search-clear-btn" title="مسح البحث">
             ✕
           </button>
+          <div class="search-suggest" id="search-suggest" style="display: none"></div>
         </div>
 
         <div class="header-actions">
@@ -3639,6 +3640,11 @@
               ☰
             </button>
           </div>
+          <!-- زر المفضلة -->
+          <button class="fav-header-btn" id="fav-header-btn" onclick="toggleFavOnly()" title="المفضلة">
+            <i class="ti ti-heart"></i>
+            <span class="fav-header-count" id="fav-header-count"></span>
+          </button>
           <!-- زر السلة -->
           <button class="cart-btn" id="cart-open-btn" onclick="openCartPanel()">
             🛒
@@ -3733,6 +3739,20 @@
           </div>
         </div>
 
+        <!-- Price / deals filter -->
+        <div class="sidebar-section" id="price-sidebar-section">
+          <div class="sidebar-title">السعر</div>
+          <div class="price-filter">
+            <input type="number" id="pf-min" min="0" inputmode="numeric" placeholder="من" oninput="setPriceFilter()" />
+            <span>–</span>
+            <input type="number" id="pf-max" min="0" inputmode="numeric" placeholder="إلى" oninput="setPriceFilter()" />
+          </div>
+          <label class="deals-check">
+            <input type="checkbox" id="pf-deals" onchange="setPriceFilter()" />
+            <span>خصومات فقط</span>
+          </label>
+        </div>
+
         <!-- Groups filter -->
         <div class="sidebar-section" id="groups-sidebar-section">
           <div class="sidebar-title">المجموعات</div>
@@ -3769,6 +3789,8 @@
               <span>ترتيب:</span>
               <select id="sort-select" onchange="setSortMode(this.value)">
                 <option value="default">افتراضي</option>
+                <option value="top">الأكثر طلبًا</option>
+                <option value="discount">أعلى خصم</option>
                 <option value="name-asc">الاسم (أ-ي)</option>
                 <option value="name-desc">الاسم (ي-أ)</option>
                 <option value="price-asc">السعر (الأقل)</option>
@@ -3806,9 +3828,14 @@
         </div>
       </div>
       <div class="cart-panel-footer" id="cart-footer" style="display: none">
+        <div id="cart-ship" class="cart-ship" style="display: none"></div>
         <div class="cart-summary">
           <span>إجمالي الأصناف:</span>
           <b id="cart-total-items">0 صنف</b>
+        </div>
+        <div class="cart-summary" id="cart-total-row" style="display: none">
+          <span>الإجمالي التقريبي:</span>
+          <b id="cart-total-price"></b>
         </div>
         <button class="btn-cart-clear" onclick="clearCart()">
           🗑️ مسح السلة بالكامل
@@ -4105,6 +4132,7 @@
       }
 
       function _bindSearch() {
+        _bindSuggest();
         var inp = document.getElementById("pub-search");
         var clr = document.getElementById("search-clear-btn");
         inp.addEventListener("input", function () {
@@ -4180,6 +4208,9 @@
           if (it.image_url) it.image_url = _fixDriveUrl(it.image_url);
         });
 
+        _prepareItems(allItems);
+        PUB.freeShipMin = Number(cs.free_ship_min || 0);
+        PUB.freeShipNote = cs.free_ship_note || "شحن مجاني";
         PUB.items = allItems;
         PUB.groups = allGroups;
         PUB.colors = d.colors || [];
@@ -4215,6 +4246,8 @@
         }
 
         _render();
+        _updateFavUI();
+        _openItemFromUrl();
       }
 
       function _onError(e) {
@@ -4477,6 +4510,22 @@
               ' <span style="font-size:10px;opacity:.7">✕</span></span>',
           );
         }
+        if (PUB.favOnly) {
+          chips.push(
+            '<span class="active-filter-chip" onclick="toggleFavOnly()">♥ المفضلة <span style="font-size:10px;opacity:.7">✕</span></span>',
+          );
+        }
+        if (PUB.priceMin || PUB.priceMax || PUB.dealsOnly) {
+          var plabel = [];
+          if (PUB.priceMin) plabel.push("من " + PUB.priceMin);
+          if (PUB.priceMax) plabel.push("إلى " + PUB.priceMax);
+          if (PUB.dealsOnly) plabel.push("خصومات");
+          chips.push(
+            '<span class="active-filter-chip" onclick="clearPriceFilter()">💰 ' +
+              plabel.join(" · ") +
+              ' <span style="font-size:10px;opacity:.7">✕</span></span>',
+          );
+        }
         if (PUB.searchQ) {
           chips.push(
             "<span class=\"active-filter-chip\" onclick=\"document.getElementById('pub-search').value='';PUB.searchQ='';document.getElementById('search-clear-btn').classList.remove('visible');_render();\">" +
@@ -4491,10 +4540,17 @@
 
       // ── Filter + sort ─────────────────────────────────────────────
       function _getFiltered() {
-        var q = PUB.searchQ.toLowerCase();
+        var qTokens = _norm(PUB.searchQ).split(" ").filter(Boolean);
+        var q = qTokens.length > 0;
         var res = PUB.items.filter(function (it) {
           if (PUB.groupFilter !== "all" && it.group !== PUB.groupFilter)
             return false;
+          if (PUB.favOnly && !_isFav(it.code)) return false;
+          if (PUB.priceMin && Number(it.selling_price || 0) < PUB.priceMin)
+            return false;
+          if (PUB.priceMax && Number(it.selling_price || 0) > PUB.priceMax)
+            return false;
+          if (PUB.dealsOnly && !_priceInfo(it).pct) return false;
           var s = _stockStatus(it);
           // لو مش showzero → أخفِ الأصناف المنتهية تماماً
           if (!PUB.urlShowzero && s === "out") return false;
@@ -4504,17 +4560,31 @@
             if (PUB.statusFilter === "low" && s !== "low") return false;
           }
           if (q) {
-            var hay = (
-              (it.code || "") +
-              " " +
-              (it.name || "") +
-              " " +
-              (it.description || "")
-            ).toLowerCase();
-            if (hay.indexOf(q) === -1) return false;
+            var hay = it._hay;
+            for (var ti = 0; ti < qTokens.length; ti++) {
+              if (hay.indexOf(qTokens[ti]) === -1) return false;
+            }
           }
           return true;
         });
+
+        // ترتيب افتراضي ذكي: المتاح الأول، النافد في الآخر، وجوّه كل فئة الأعلى طلبًا
+        if (PUB.sortMode === "default") {
+          res = res
+            .map(function (x, i) {
+              return { x: x, i: i };
+            })
+            .sort(function (a, b) {
+              var ao = _stockStatus(a.x) === "out" ? 1 : 0;
+              var bo = _stockStatus(b.x) === "out" ? 1 : 0;
+              if (ao !== bo) return ao - bo;
+              var d = Number(b.x.orders_count || 0) - Number(a.x.orders_count || 0);
+              return d || a.i - b.i;
+            })
+            .map(function (o) {
+              return o.x;
+            });
+        }
 
         // Sort
         if (PUB.sortMode === "name-asc") {
@@ -4532,6 +4602,14 @@
         } else if (PUB.sortMode === "price-desc") {
           res.sort(function (a, b) {
             return Number(b.selling_price || 0) - Number(a.selling_price || 0);
+          });
+        } else if (PUB.sortMode === "top") {
+          res.sort(function (a, b) {
+            return Number(b.orders_count || 0) - Number(a.orders_count || 0);
+          });
+        } else if (PUB.sortMode === "discount") {
+          res.sort(function (a, b) {
+            return _priceInfo(b).pct - _priceInfo(a).pct;
           });
         }
 
@@ -4551,7 +4629,9 @@
 
         if (!items.length) {
           wrap.innerHTML =
-            '<div class="empty-wrap"><div class="empty-icon">🔍</div><h3>لا توجد نتائج</h3><p>جرّب تغيير كلمة البحث أو الفلتر</p></div>';
+            PUB.favOnly
+              ? '<div class="empty-wrap"><div class="empty-icon">♡</div><h3>مفيش أصناف في المفضلة</h3><p>اضغط على القلب في أي صنف عشان يتحفظ هنا</p></div>'
+              : '<div class="empty-wrap"><div class="empty-icon">🔍</div><h3>لا توجد نتائج</h3><p>جرّب تغيير كلمة البحث أو الفلتر</p></div>';
           return;
         }
 
@@ -4559,9 +4639,439 @@
         if (PUB.viewMode === "list") {
           wrap.innerHTML = _buildTable(items);
         } else {
-          wrap.innerHTML = _buildGrid(items);
+          wrap.innerHTML =
+            _buildFavBar() +
+            _buildTopStrip() +
+            _buildDealsStrip() +
+            _buildGrid(items) +
+            _buildRecentStrip();
         }
       }
+
+      // ── السعر الأصلي / السعر بعد الخصم ──────────────────────────
+      function _priceInfo(it) {
+        var price = Number(it.selling_price || 0);
+        var old = Number(it.old_price || 0);
+        var has = !PUB.urlNoprices && price > 0;
+        var disc = has && old > price;
+        return {
+          has: has,
+          price: price,
+          old: disc ? old : 0,
+          save: disc ? old - price : 0,
+          pct: disc ? Math.round(((old - price) / old) * 100) : 0,
+        };
+      }
+
+      // ── الأعلى طلبًا: أعلى 8 أصناف عندها طلبات مسجّلة ───────────
+      function _topItems() {
+        if (PUB._topCache && PUB._topCache.n === PUB.items.length)
+          return PUB._topCache.list;
+        var list = PUB.items
+          .filter(function (x) {
+            return Number(x.orders_count || 0) >= 2 && _stockStatus(x) !== "out";
+          })
+          .sort(function (a, b) {
+            return Number(b.orders_count) - Number(a.orders_count);
+          })
+          .slice(0, 8);
+        PUB._topCache = { n: PUB.items.length, list: list };
+        return list;
+      }
+      function _isTopSeller(code) {
+        var l = _topItems();
+        for (var i = 0; i < Math.min(l.length, 5); i++)
+          if (l[i].code === code) return true;
+        return false;
+      }
+      /* الشرائط بتظهر بس في العرض الافتراضي من غير بحث أو فلتر */
+      function _stripsAllowed() {
+        if (PUB.searchQ || PUB.sortMode !== "default" || PUB.favOnly)
+          return false;
+        if (PUB.groupFilter !== "all" || PUB.statusFilter !== "all")
+          return false;
+        if (PUB.priceMin || PUB.priceMax || PUB.dealsOnly) return false;
+        return true;
+      }
+      function _buildStrip(title, icon, list, cls, moreSort) {
+        var cards = list
+          .map(function (it, i) {
+            var pi = _priceInfo(it);
+            return (
+              '<div class="top-card" onclick="openDrawer(\'' +
+              _esc(it.code) +
+              "')\">" +
+              (cls === "rank"
+                ? '<span class="top-rank">' + (i + 1) + "</span>"
+                : pi.pct && cls === "deals"
+                  ? '<span class="top-rank top-rank-deal">خصم ' + pi.pct + "%</span>"
+                  : "") +
+              '<div class="top-img">' +
+              (it.image_url
+                ? '<img src="' +
+                  _esc(_gridThumbUrl(it.image_url)) +
+                  '" loading="lazy" alt="">'
+                : '<div class="card-img-ph"><div class="ph-icon">📦</div></div>') +
+              "</div>" +
+              '<div class="top-name">' +
+              _esc(it.name || "") +
+              "</div>" +
+              (pi.has
+                ? '<div class="top-price">' +
+                  pi.price.toLocaleString("en-US") +
+                  " ج.م" +
+                  (pi.pct
+                    ? ' <s class="card-old-price">' +
+                      pi.old.toLocaleString("en-US") +
+                      "</s>"
+                    : "") +
+                  "</div>"
+                : "") +
+              "</div>"
+            );
+          })
+          .join("");
+        return (
+          '<section class="top-strip"><div class="top-strip-head"><h2><i class="ti ' +
+          icon +
+          '"></i> ' +
+          title +
+          "</h2>" +
+          (moreSort
+            ? "<button onclick=\"setSortMode('" +
+              moreSort +
+              "');document.getElementById('sort-select').value='" +
+              moreSort +
+              "'\">عرض الكل</button>"
+            : "") +
+          '</div><div class="top-strip-row">' +
+          cards +
+          "</div></section>"
+        );
+      }
+      function _buildTopStrip() {
+        if (!_stripsAllowed()) return "";
+        var top = _topItems();
+        if (top.length < 3) return "";
+        return _buildStrip("الأعلى طلبًا", "ti-flame", top, "rank", "top");
+      }
+      /* عروض اليوم: أعلى الأصناف خصمًا */
+      function _buildDealsStrip() {
+        if (!_stripsAllowed()) return "";
+        var list = PUB.items
+          .filter(function (x) {
+            return _priceInfo(x).pct > 0 && _stockStatus(x) !== "out";
+          })
+          .sort(function (a, b) {
+            return _priceInfo(b).pct - _priceInfo(a).pct;
+          })
+          .slice(0, 8);
+        if (list.length < 3) return "";
+        return _buildStrip("عروض اليوم", "ti-discount-2", list, "deals", "discount");
+      }
+      /* شاهدته مؤخرًا (محفوظ في المتصفح بس) */
+      function _recentGet() {
+        try {
+          return JSON.parse(localStorage.getItem("catalog_recent") || "[]");
+        } catch (e) {
+          return [];
+        }
+      }
+      function _recentPush(code) {
+        try {
+          var l = _recentGet().filter(function (c) {
+            return c !== code;
+          });
+          l.unshift(code);
+          localStorage.setItem("catalog_recent", JSON.stringify(l.slice(0, 12)));
+        } catch (e) {}
+      }
+      function _buildRecentStrip() {
+        if (!_stripsAllowed()) return "";
+        var list = _recentGet()
+          .map(function (c) {
+            return PUB.items.find(function (x) {
+              return x.code === c;
+            });
+          })
+          .filter(Boolean)
+          .slice(0, 8);
+        if (list.length < 2) return "";
+        return _buildStrip("شاهدته مؤخرًا", "ti-history", list, "recent", "");
+      }
+
+      /* ── المفضلة (محفوظة في المتصفح) ── */
+      function _favGet() {
+        if (PUB._favs) return PUB._favs;
+        try {
+          PUB._favs = JSON.parse(localStorage.getItem("catalog_favs") || "[]");
+        } catch (e) {
+          PUB._favs = [];
+        }
+        return PUB._favs;
+      }
+      function _isFav(code) {
+        return _favGet().indexOf(code) !== -1;
+      }
+      function toggleFav(code, ev) {
+        if (ev) ev.stopPropagation();
+        var f = _favGet();
+        var i = f.indexOf(code);
+        if (i === -1) f.push(code);
+        else f.splice(i, 1);
+        try {
+          localStorage.setItem("catalog_favs", JSON.stringify(f));
+        } catch (e) {}
+        document
+          .querySelectorAll('[data-fav="' + String(code).replace(/"/g, "") + '"]')
+          .forEach(function (b) {
+            b.classList.toggle("is-fav", i === -1);
+            var ic = b.querySelector("i");
+            if (ic) ic.className = "ti " + (i === -1 ? "ti-heart" : "ti-heart");
+          });
+        _updateFavUI();
+        if (PUB.favOnly && i !== -1) _render();
+        _showToast(i === -1 ? "♥ تمت الإضافة للمفضلة" : "تم الحذف من المفضلة");
+      }
+      function _updateFavUI() {
+        var n = _favGet().length;
+        var c = document.getElementById("fav-header-count");
+        var b = document.getElementById("fav-header-btn");
+        if (c) c.textContent = n ? n : "";
+        if (b) {
+          b.classList.toggle("active", !!PUB.favOnly);
+          b.classList.toggle("has-favs", n > 0);
+          var ic = b.querySelector("i");
+          if (ic)
+            ic.className =
+              "ti " + (PUB.favOnly || n ? "ti-heart" : "ti-heart");
+        }
+      }
+      function toggleFavOnly() {
+        PUB.favOnly = !PUB.favOnly;
+        _updateFavUI();
+        _render();
+        _updateActiveFilterBar();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      function _buildFavBar() {
+        if (!PUB.favOnly) return "";
+        var n = _favGet().filter(function (c) {
+          return PUB.items.some(function (x) {
+            return x.code === c;
+          });
+        }).length;
+        if (!n) return "";
+        return (
+          '<div class="fav-bar"><span>♥ المفضلة (' +
+          n +
+          ' صنف)</span><button onclick="sendFavsWhatsApp()"><i class="ti ti-brand-whatsapp"></i> ابعت المفضلة واتساب</button></div>'
+        );
+      }
+      function sendFavsWhatsApp() {
+        var list = PUB.items.filter(function (x) {
+          return _isFav(x.code);
+        });
+        if (!list.length) return;
+        var lines = list.map(function (it, i) {
+          var pi = _priceInfo(it);
+          return (
+            i + 1 + ". " + it.name + " (" + it.code + ")" +
+            (pi.has ? " — " + pi.price.toLocaleString("en-US") + " ج.م" : "")
+          );
+        });
+        PUB_WA.send(
+          "أهلاً " + PUB.SHOP_NAME + " 👋\n\nالأصناف دي عجبتني وعايز أستفسر عنها:\n\n" +
+            lines.join("\n") + "\n\nأرجو التواصل 🙏",
+          { source_type: "catalog_public_favs" },
+        );
+      }
+
+      /* ── فلتر السعر وخصومات فقط ── */
+      var _pfTimer = null;
+      function setPriceFilter() {
+        clearTimeout(_pfTimer);
+        _pfTimer = setTimeout(function () {
+          PUB.priceMin = Number(document.getElementById("pf-min").value) || 0;
+          PUB.priceMax = Number(document.getElementById("pf-max").value) || 0;
+          PUB.dealsOnly = !!document.getElementById("pf-deals").checked;
+          _render();
+          _updateActiveFilterBar();
+        }, 250);
+      }
+      function clearPriceFilter() {
+        document.getElementById("pf-min").value = "";
+        document.getElementById("pf-max").value = "";
+        document.getElementById("pf-deals").checked = false;
+        PUB.priceMin = 0;
+        PUB.priceMax = 0;
+        PUB.dealsOnly = false;
+        _render();
+        _updateActiveFilterBar();
+      }
+
+      /* ── تطبيع النص العربي للبحث (أ/إ/آ=ا، ة=ه، ى=ي، شيل التشكيل) ── */
+      function _norm(t) {
+        return String(t || "")
+          .toLowerCase()
+          .replace(/[\u064B-\u065F\u0670\u0640]/g, "")
+          .replace(/[أإآٱ]/g, "ا")
+          .replace(/ة/g, "ه")
+          .replace(/[ىئ]/g, "ي")
+          .replace(/ؤ/g, "و")
+          .replace(/[٠-٩]/g, function (d) {
+            return String(d.charCodeAt(0) - 1632);
+          })
+          .replace(/\s+/g, " ")
+          .trim();
+      }
+
+      /* ── تجهيز بيانات الأصناف بعد التحميل: بحث، أسعار الجملة، جديد ── */
+      function _prepareItems(list) {
+        var now = Date.now();
+        list.forEach(function (it) {
+          it.code = it.code || it.id || "";
+          it._hay = _norm(
+            (it.code || "") + " " + (it.name || "") + " " + (it.description || ""),
+          );
+          var price = Number(it.selling_price || 0);
+          it._tiers = String(it.tiers || "")
+            .split(",")
+            .map(function (p) {
+              var a = p.split(":");
+              return { q: parseInt(a[0], 10), p: Number(a[1]) };
+            })
+            .filter(function (t) {
+              return t.q > 1 && t.p > 0 && (!price || t.p < price);
+            })
+            .sort(function (a, b) {
+              return a.q - b.q;
+            });
+          var t = it.created_at ? Date.parse(it.created_at) : NaN;
+          it._isNew = !isNaN(t) && now - t < 14 * 86400000 && now >= t;
+        });
+      }
+      /* سعر الوحدة حسب الكمية (أسعار الجملة المتدرجة) */
+      function _unitPriceFor(it, qty) {
+        var p = Number(it.selling_price || 0);
+        (it._tiers || []).forEach(function (t) {
+          if (qty >= t.q) p = t.p;
+        });
+        return p;
+      }
+
+      /* ── اقتراحات البحث (autocomplete) ── */
+      function _bindSuggest() {
+        var inp = document.getElementById("pub-search");
+        var box = document.getElementById("search-suggest");
+        if (!inp || !box) return;
+        function hide() {
+          box.style.display = "none";
+        }
+        function show() {
+          var toks = _norm(inp.value).split(" ").filter(Boolean);
+          if (!toks.length) return hide();
+          var hits = PUB.items
+            .filter(function (it) {
+              return toks.every(function (t) {
+                return it._hay.indexOf(t) !== -1;
+              });
+            })
+            .slice(0, 6);
+          if (!hits.length) return hide();
+          box.innerHTML = hits
+            .map(function (it) {
+              var pi = _priceInfo(it);
+              return (
+                '<div class="sg-item" data-code="' +
+                _esc(it.code) +
+                '"><span class="sg-name">' +
+                _esc(it.name) +
+                "</span>" +
+                (pi.has
+                  ? '<span class="sg-price">' + pi.price.toLocaleString("en-US") + " ج.م</span>"
+                  : "") +
+                "</div>"
+              );
+            })
+            .join("");
+          box.style.display = "block";
+        }
+        inp.addEventListener("input", show);
+        inp.addEventListener("focus", show);
+        inp.addEventListener("keydown", function (e) {
+          if (e.key === "Escape" || e.key === "Enter") hide();
+        });
+        box.addEventListener("mousedown", function (e) {
+          var el = e.target.closest(".sg-item");
+          if (!el) return;
+          e.preventDefault();
+          hide();
+          openDrawer(el.getAttribute("data-code"));
+        });
+        document.addEventListener("click", function (e) {
+          if (!e.target.closest(".search-wrap")) hide();
+        });
+      }
+
+      /* ── مشاركة صنف برابط مباشر ── */
+      function shareItem(code) {
+        var it = PUB.items.find(function (x) {
+          return x.code === code;
+        });
+        var url = location.origin + "/?item=" + encodeURIComponent(code);
+        var title = it ? it.name : "";
+        if (navigator.share) {
+          navigator.share({ title: title, url: url }).catch(function () {});
+          return;
+        }
+        var done = function () {
+          _showToast("🔗 تم نسخ رابط الصنف");
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(url).then(done, function () {
+            window.prompt("انسخ الرابط:", url);
+          });
+        } else {
+          window.prompt("انسخ الرابط:", url);
+        }
+      }
+      function _openItemFromUrl() {
+        try {
+          var c = new URLSearchParams(location.search).get("item");
+          if (!c) return;
+          var it = PUB.items.find(function (x) {
+            return x.code === c;
+          });
+          if (it) openDrawer(c);
+        } catch (e) {}
+      }
+
+      /* ── منتجات شبيهة (نفس المجموعة) ── */
+      function _similarHtml(it) {
+        var list = PUB.items
+          .filter(function (x) {
+            return x.code !== it.code && x.group === it.group && _stockStatus(x) !== "out";
+          })
+          .sort(function (a, b) {
+            return Number(b.orders_count || 0) - Number(a.orders_count || 0);
+          })
+          .slice(0, 8);
+        if (!list.length) return "";
+        return (
+          '<div class="similar-wrap">' +
+          _buildStrip("أصناف شبيهة", "ti-layout-grid", list, "similar", "")
+            .replace("top-strip", "top-strip similar-strip")
+            .replace(/onclick="openDrawer\(/g, 'onclick="_openSimilar(') +
+          "</div>"
+        );
+      }
+      function _openSimilar(code) {
+        var d = document.getElementById("drawer-body");
+        openDrawer(code);
+        if (d) d.scrollTop = 0;
+      }
+
       var _cardRenderIndex = 0;
       /* عدد الصور اللي تتحمل فورًا (eager/high-priority) بدل ما تستنى الـ lazy —
          على الموبايل بيبقى عمود واحد فبس 2-3 كروت ظاهرة فعليًا فوق الشاشة،
@@ -4685,11 +5195,48 @@
             '<div class="colors-more">+' + (colors.length - 7) + "</div>";
         }
 
-        var priceHtml =
-          !PUB.urlNoprices && it.selling_price && Number(it.selling_price) > 0
-            ? '<div class="card-price"><span class="p-num">' +
-              Number(it.selling_price).toLocaleString("en-US") +
-              '</span><span class="p-cur">ج.م</span></div>'
+        var pi = _priceInfo(it);
+        var priceHtml = pi.has
+          ? '<div class="card-price-block">' +
+            '<div class="card-price' +
+            (pi.pct ? " has-discount" : "") +
+            '"><span class="p-num">' +
+            pi.price.toLocaleString("en-US") +
+            '</span><span class="p-cur">ج.م</span></div>' +
+            (pi.pct
+              ? '<div class="card-old-row"><span class="card-old-label">السعر الأصلي:</span> <s class="card-old-price">' +
+                pi.old.toLocaleString("en-US") +
+                '</s> <span class="card-save">وفّر ' +
+                pi.save.toLocaleString("en-US") +
+                " ج.م</span></div>"
+              : "") +
+            (it._tiers && it._tiers.length
+              ? '<div class="card-tier"><i class="ti ti-packages"></i> اشتري ' +
+                it._tiers[0].q +
+                "+ بـ " +
+                it._tiers[0].p.toLocaleString("en-US") +
+                " ج.م للقطعة</div>"
+              : "") +
+            "</div>"
+          : "";
+        var tagsHtml =
+          (pi.pct
+            ? '<span class="card-tag tag-discount">خصم ' + pi.pct + "%</span>"
+            : "") +
+          (_isTopSeller(it.code)
+            ? '<span class="card-tag tag-top"><i class="ti ti-flame"></i> الأكثر طلبًا</span>'
+            : "") +
+          (it._isNew ? '<span class="card-tag tag-new">جديد</span>' : "") +
+          (s === "low" && !PUB.urlNoqty && Number(it.pub_qty) > 0
+            ? '<span class="card-tag tag-low">باقي ' +
+              Number(it.pub_qty).toLocaleString("en-US") +
+              " فقط</span>"
+            : "");
+        var ordersHtml =
+          Number(it.orders_count) >= 3
+            ? '<div class="card-orders"><i class="ti ti-shopping-cart"></i> ' +
+              Number(it.orders_count).toLocaleString("en-US") +
+              " طلب</div>"
             : "";
 
         // لما urlNoqty → كل الأصناف قابلة للطلب
@@ -4707,6 +5254,7 @@
           imgHtml +
           previewHtml +
           (badge ? '<div class="card-status">' + badge + "</div>" : "") +
+          (tagsHtml ? '<div class="card-tags">' + tagsHtml + "</div>" : "") +
           '<div class="card-overlay"><button class="card-overlay-btn" onclick="event.stopPropagation();openDrawer(\'' +
           _esc(it.code) +
           "')\">👁️ عرض التفاصيل</button></div>" +
@@ -4738,6 +5286,7 @@
               priceHtml +
               "</div>"
             : "") +
+          ordersHtml +
           "</div>" +
           '<div class="card-footer">' +
           '<button class="' +
@@ -4750,6 +5299,15 @@
           '<button class="btn-details" title="تفاصيل" onclick="event.stopPropagation();openDrawer(\'' +
           _esc(it.code) +
           "')\">👁️</button>" +
+          '<button class="btn-fav' +
+          (_isFav(it.code) ? " is-fav" : "") +
+          '" data-fav="' +
+          _esc(it.code) +
+          '" title="المفضلة" onclick="toggleFav(\'' +
+          _esc(it.code) +
+          "',event)\"><i class=\"ti " +
+          (_isFav(it.code) ? "ti-heart" : "ti-heart") +
+          '"></i></button>' +
           "</div></div>"
         );
       }
@@ -5194,6 +5752,7 @@
         });
         if (!it) return;
         it.code = it.code || it.id || "";
+        _recentPush(it.code);
 
         var s = _stockStatus(it);
         var badge = PUB.urlNoqty
@@ -5264,12 +5823,20 @@
         }
 
         /* price */
-        var priceBlock =
-          !PUB.urlNoprices && it.selling_price && Number(it.selling_price) > 0
-            ? '<div class="modal-meta-item"><div class="m-label">السعر</div><div class="m-val" style="color:var(--warning)"><i class="ti ti-coin" style="font-size:13px;margin-left:3px"></i>' +
-              Number(it.selling_price).toLocaleString("en-US") +
-              " ج.م</div></div>"
-            : "";
+        var _pi = _priceInfo(it);
+        var priceBlock = _pi.has
+          ? '<div class="modal-meta-item"><div class="m-label">السعر</div><div class="m-val" style="color:var(--warning)"><i class="ti ti-coin" style="font-size:13px;margin-left:3px"></i>' +
+            _pi.price.toLocaleString("en-US") +
+            " ج.م" +
+            (_pi.pct
+              ? '<div class="card-old-row" style="margin-top:4px"><s class="card-old-price">' +
+                _pi.old.toLocaleString("en-US") +
+                '</s> <span class="card-save">خصم ' +
+                _pi.pct +
+                "%</span></div>"
+              : "") +
+            "</div></div>"
+          : "";
 
         /* color picker */
         var colorPickerHtml = "";
@@ -5383,6 +5950,20 @@
           '<div class="modal-body">' +
           galleryHtml +
           '<div class="modal-content">' +
+          '<div class="modal-actions">' +
+          '<button type="button" class="ma-btn' +
+          (_isFav(it.code) ? " is-fav" : "") +
+          '" data-fav="' +
+          _esc(it.code) +
+          '" onclick="toggleFav(\'' +
+          _esc(it.code) +
+          "',event)\"><i class=\"ti " +
+          (_isFav(it.code) ? "ti-heart" : "ti-heart") +
+          '"></i> المفضلة</button>' +
+          '<button type="button" class="ma-btn" onclick="shareItem(\'' +
+          _esc(it.code) +
+          "')\"><i class=\"ti ti-share\"></i> مشاركة</button>" +
+          "</div>" +
           '<div class="modal-meta-grid">' +
           '<div class="modal-meta-item"><div class="m-label">كود الصنف</div><div class="m-val mono">' +
           _esc(it.code || "") +
@@ -5408,6 +5989,7 @@
             : "") +
           priceBlock +
           "</div>" +
+          _tiersHtml(it) +
           (it.description
             ? '<p style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:16px;padding:12px 14px;background:var(--surface2);border-radius:var(--radius);border:1px solid var(--border)">' +
               _esc(it.description) +
@@ -5415,6 +5997,7 @@
             : "") +
           colorPickerHtml +
           orderSection +
+          _similarHtml(it) +
           "</div></div>";
 
         document.getElementById("drawer-header-left").innerHTML = headerLeft;
@@ -5462,6 +6045,27 @@
           drawer.classList.add("open");
         });
         document.body.style.overflow = "hidden";
+      }
+
+      function _tiersHtml(it) {
+        if (PUB.urlNoprices || !it._tiers || !it._tiers.length) return "";
+        var base = Number(it.selling_price || 0);
+        var rows =
+          "<tr><td>1+</td><td>" + base.toLocaleString("en-US") + " ج.م</td><td></td></tr>" +
+          it._tiers
+            .map(function (t) {
+              var pct = base ? Math.round(((base - t.p) / base) * 100) : 0;
+              return (
+                "<tr><td>" + t.q + "+</td><td>" + t.p.toLocaleString("en-US") +
+                " ج.م</td><td>" + (pct ? '<span class="card-save">وفّر ' + pct + "%</span>" : "") + "</td></tr>"
+              );
+            })
+            .join("");
+        return (
+          '<div class="tiers-box"><div class="tiers-title"><i class="ti ti-packages"></i> أسعار الجملة (سعر القطعة حسب الكمية)</div>' +
+          '<table class="tiers-table"><thead><tr><th>الكمية</th><th>سعر القطعة</th><th></th></tr></thead><tbody>' +
+          rows + "</tbody></table></div>"
+        );
       }
 
       function closeDrawer() {
@@ -5890,6 +6494,7 @@
         }
 
         _renderCartItems();
+        _renderCartTotals();
       }
 
       function _renderCartItems() {
@@ -5934,6 +6539,7 @@
             "</span>" +
             "</div>" +
             colorRow +
+            _cartLinePriceHtml(item) +
             '<div class="cart-item-qty-row">' +
             '<button class="qty-btn" onclick="cartQty(' +
             idx +
@@ -5956,6 +6562,58 @@
             "</div>"
           );
         }).join("");
+      }
+
+      function _cartItemObj(item) {
+        return PUB.items.find(function (x) {
+          return x.code === item.code;
+        });
+      }
+      function _cartLinePriceHtml(item) {
+        var it = _cartItemObj(item);
+        if (!it || PUB.urlNoprices || !Number(it.selling_price)) return "";
+        var unit = _unitPriceFor(it, item.qty);
+        var base = Number(it.selling_price);
+        return (
+          '<div class="cart-item-price">' +
+          unit.toLocaleString("en-US") + " ج.م × " + item.qty + " = <b>" +
+          (unit * item.qty).toLocaleString("en-US") + " ج.م</b>" +
+          (unit < base ? ' <span class="card-save">سعر الجملة</span>' : "") +
+          "</div>"
+        );
+      }
+      function _cartTotal() {
+        var t = 0;
+        CART.forEach(function (i) {
+          var it = _cartItemObj(i);
+          if (it && Number(it.selling_price))
+            t += _unitPriceFor(it, i.qty) * i.qty;
+        });
+        return t;
+      }
+      function _renderCartTotals() {
+        var row = document.getElementById("cart-total-row");
+        var val = document.getElementById("cart-total-price");
+        var ship = document.getElementById("cart-ship");
+        var total = _cartTotal();
+        var show = !PUB.urlNoprices && total > 0;
+        if (row) row.style.display = show ? "" : "none";
+        if (val) val.textContent = total.toLocaleString("en-US") + " ج.م";
+        if (ship) {
+          var min = Number(PUB.freeShipMin || 0);
+          if (show && min > 0) {
+            var left = min - total;
+            var pct = Math.min(100, Math.round((total / min) * 100));
+            ship.style.display = "";
+            ship.innerHTML =
+              (left > 0
+                ? "<span>أضف بـ <b>" + left.toLocaleString("en-US") + " ج.م</b> كمان واحصل على " + _esc(PUB.freeShipNote) + "</span>"
+                : '<span class="ship-ok">✅ مبروك! طلبك مؤهل لـ ' + _esc(PUB.freeShipNote) + "</span>") +
+              '<div class="ship-bar"><div class="ship-fill' + (left <= 0 ? " done" : "") + '" style="width:' + pct + '%"></div></div>';
+          } else {
+            ship.style.display = "none";
+          }
+        }
       }
 
       function cartQty(idx, delta) {
@@ -6093,15 +6751,25 @@
             ")" +
             (item.color ? " — اللون: " + item.color : "") +
             " — الكمية: " +
-            item.qty
+            item.qty +
+            (function () {
+              var it = _cartItemObj(item);
+              if (!it || PUB.urlNoprices || !Number(it.selling_price)) return "";
+              var u = _unitPriceFor(it, item.qty);
+              return " — " + (u * item.qty).toLocaleString("en-US") + " ج.م";
+            })()
           );
         });
+        var _tot = _cartTotal();
         var msg =
           "أهلاً " +
           PUB.SHOP_NAME +
           " 👋\n\n" +
           "أريد طلب الأصناف التالية:\n\n" +
           lines.join("\n") +
+          (!PUB.urlNoprices && _tot > 0
+            ? "\n\nالإجمالي التقريبي: " + _tot.toLocaleString("en-US") + " ج.م"
+            : "") +
           "\n\nأرجو التواصل لإتمام الطلب 🙏";
         PUB_WA.send(msg, { source_type: "catalog_public_cart" });
       }

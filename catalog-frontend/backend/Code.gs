@@ -343,6 +343,40 @@ function _clearPublicCatalogCache() {
   }
 }
 
+function _isoOrEmpty(v) {
+  if (!v) return '';
+  if (Object.prototype.toString.call(v) === '[object Date]') {
+    return isNaN(v.getTime()) ? '' : v.toISOString();
+  }
+  return String(v);
+}
+
+// ── حساب الطلب على كل صنف من تاب WhatsAppLog (آخر 2000 رسالة) ──
+// أعمدة السجل: [التاريخ, source_type, source_id, customer_name, message]
+// رسائل الطلب (فردي أو سلة) بتحتوي على "(كود الصنف)" فبنعدّها بالـ regex.
+function _computeDemandByCode() {
+  var counts = {};
+  try {
+    var sh = _sheet(SHEET_WA_LOG);
+    var last = sh.getLastRow();
+    if (last < 1) return counts;
+    var start = Math.max(1, last - 1999);
+    var rows = sh.getRange(start, 1, last - start + 1, 5).getValues();
+    rows.forEach(function (r) {
+      var msg = String(r[4] || '');
+      var re = /\(([^()\n]{1,60})\)/g;
+      var m;
+      while ((m = re.exec(msg)) !== null) {
+        var code = m[1].trim();
+        counts[code] = (counts[code] || 0) + 1;
+      }
+    });
+  } catch (e) {
+    /* صامت — لو التاب مش موجود أو فاضي مفيش بيانات طلب */
+  }
+  return counts;
+}
+
 // ── الدالة الأساسية اللي بتنادي عليها الصفحة عند التحميل ──────
 function getCatalogPublicData(urlGroupsCsv, urlWhCsv) {
   try {
@@ -365,6 +399,9 @@ function getCatalogPublicData(urlGroupsCsv, urlWhCsv) {
     var itemsRaw = _sheetToObjects(SHEET_ITEMS);
     var groupsRaw = _sheetToObjects(SHEET_GROUPS);
 
+    // 🔥 الطلب: عدد مرات ظهور كل كود صنف "(CODE)" في رسائل الواتساب المسجّلة
+    var demand = _computeDemandByCode();
+
     var items = itemsRaw
       .filter(function (it) {
         if (String(it.active).toLowerCase() === 'false') return false;
@@ -384,6 +421,14 @@ function getCatalogPublicData(urlGroupsCsv, urlWhCsv) {
           group: String(it.group_id || ''),
           unit: String(it.unit || ''),
           selling_price: Number(it.selling_price || 0),
+          // السعر الأصلي (قبل الخصم) — اختياري، يظهر مشطوب لو أكبر من سعر البيع
+          old_price: Number(it.old_price || 0),
+          // أسعار الجملة المتدرجة: "10:90,50:80" = من 10 قطع بـ 90، ومن 50 بـ 80
+          tiers: String(it.tiers || ''),
+          // تاريخ إضافة الصنف (بيتسجل تلقائيًا عند الإنشاء) — لشارة "جديد"
+          created_at: _isoOrEmpty(it.created_at),
+          // عدد الطلبات المسجّلة (محسوب تلقائيًا من سجل الواتساب)
+          orders_count: demand[String(it.code || '').trim()] || 0,
           pub_qty: Number(it.pub_qty || 0),
           min_qty: Number(it.min_qty || 0),
           min_order_qty: Number(it.min_order_qty || 0),
@@ -409,6 +454,9 @@ function getCatalogPublicData(urlGroupsCsv, urlWhCsv) {
       tagline: settings.tagline || '',
       logo_url: settings.logo_url || '',
       whatsapp: settings.whatsapp || '',
+      // الشحن المجاني: الحد الأدنى لإجمالي السلة (0 = معطّل) + نص اختياري
+      free_ship_min: Number(settings.free_ship_min || 0),
+      free_ship_note: settings.free_ship_note || '',
     };
 
     var result = {
@@ -488,6 +536,9 @@ function adminSaveItem(password, item) {
     if (!_adminCheckPassword(password)) return { success: false, message: 'غير مصرح' };
     if (!item || !String(item.code || '').trim()) return { success: false, message: 'كود الصنف مطلوب' };
     if (!String(item.name || '').trim()) return { success: false, message: 'اسم الصنف مطلوب' };
+
+    // تاريخ الإضافة بيتسجل مرة واحدة عند الإنشاء (للصنف الجديد بس)
+    if (!item.id) item.created_at = new Date().toISOString();
 
     var lock = LockService.getScriptLock();
     lock.waitLock(15000);
@@ -689,7 +740,7 @@ function adminDeleteGroup(password, id) {
 //  إعدادات المتجر — تاب Settings بصيغة key/value
 // ============================================================
 
-var SETTINGS_FIELDS = ['company_name', 'tagline', 'logo_url', 'whatsapp'];
+var SETTINGS_FIELDS = ['company_name', 'tagline', 'logo_url', 'whatsapp', 'free_ship_min', 'free_ship_note'];
 
 // ── يقرأ الإعدادات العامة (بدون كلمة السر) لعرضها في شاشة الإعدادات ──
 function adminGetSettings(password) {

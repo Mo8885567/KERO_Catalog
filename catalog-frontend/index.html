@@ -1447,6 +1447,15 @@
         color: #991b1b;
         border: 1px solid rgba(220, 38, 38, 0.3);
       }
+      /* صنف نافد: يفضل ظاهر لكن باهت (زي "Currently unavailable" في أمازون) */
+      .card.card-out .card-img {
+        filter: grayscale(0.85);
+        opacity: 0.55;
+      }
+      .card.card-out .card-name,
+      .card.card-out .card-price {
+        opacity: 0.7;
+      }
 
       /* ===== TABLE VIEW ===== */
       .table-wrap {
@@ -3941,7 +3950,7 @@
       var _URL_GROUPS = ""; // كل المجموعات
       var _URL_WH = ""; // كل المخازن
       var _URL_NOPRICES = "0"; // الأسعار ظاهرة
-      var _URL_SHOWZERO = "0"; // الأصناف اللي رصيدها صفر مخفية
+      var _URL_SHOWZERO = "1"; // الأصناف النافدة تفضل ظاهرة (زي أمازون) مع علامة "غير متوفر"
       var _URL_NOQTY = "0"; // الأرصدة ظاهرة
       var _URL_CLIENT = ""; // مفيش رسالة ترحيب باسم عميل
 
@@ -5364,7 +5373,7 @@
           "btn-order" + (isDisabled ? " btn-order-disabled" : "");
 
         return (
-          '<div class="card" onclick="openDrawer(\'' +
+          '<div class="card' + (s === "out" && !PUB.urlNoqty ? " card-out" : "") + '" onclick="openDrawer(\'' +
           _esc(it.code) +
           "')\">" +
           '<div class="card-img-wrap">' +

@@ -18,6 +18,7 @@
     <link href="/assets/fonts/fonts.css" rel="stylesheet" />
     <link rel="stylesheet" href="/assets/icons/tabler-icons.min.css" />
     <link rel="stylesheet" href="/assets/css/custom-select.css" />
+    <script src="/assets/js/ui-dialogs.js"></script>
     <style>
 *,
 *::before,
@@ -1749,9 +1750,9 @@ html[data-theme="dark"] .toast.err {
     <script src="/src/config.js"></script>
     <script src="/src/api/client.js"></script>
     <script>
-      function _openGasConfig() {
+      async function _openGasConfig() {
         var current = (window.GAS && window.GAS.getUrl()) || "";
-        var url = window.prompt("الصق رابط نشر Apps Script (Web app URL):", current);
+        var url = await UI.prompt("الصق رابط نشر Apps Script (Web app URL):", current, { placeholder: "https://script.google.com/..." });
         if (url === null) return;
         url = url.trim();
         if (!url) return;
@@ -2944,16 +2945,16 @@ function bulkMove() {
   if (!g) return showToast("اختار المجموعة الأول", true);
   bulkApply(selectedIds(), { group_id: g }, "اتنقلوا لـ «" + groupName(g) + "»");
 }
-function bulkDiscount() {
+async function bulkDiscount() {
   var p = num($("bulkPct").value);
   if (!(p >= 1 && p <= 99)) return showToast("اكتب نسبة خصم من 1 لـ 99", true);
   var n = selectedIds().length;
-  if (!confirm("تطبيق خصم " + p + "% على " + n + " صنف؟ السعر الحالي هيتحوّل لسعر أصلي مشطوب.")) return;
+  if (!(await UI.confirm("تطبيق خصم " + p + "% على " + n + " صنف؟ السعر الحالي هيتحوّل لسعر أصلي مشطوب.", { title: "تطبيق خصم", okText: "طبّق الخصم" }))) return;
   bulkApply(selectedIds(), { discount_pct: p }, "اتطبّق الخصم");
 }
-function bulkRemoveDiscount() {
+async function bulkRemoveDiscount() {
   var n = selectedIds().length;
-  if (!confirm("إلغاء الخصم عن " + n + " صنف؟ سعر البيع هيرجع للسعر الأصلي.")) return;
+  if (!(await UI.confirm("إلغاء الخصم عن " + n + " صنف؟ سعر البيع هيرجع للسعر الأصلي.", { title: "إلغاء الخصم", okText: "إلغاء الخصم" }))) return;
   bulkApply(selectedIds(), { remove_discount: true }, "اتلغى الخصم");
 }
 
@@ -3047,10 +3048,10 @@ function togglePin(id) {
       showToast("خطأ: " + err.message, true);
     });
 }
-function deleteItem(id) {
+async function deleteItem(id) {
   var it = itemById(id);
   if (_busy["del:" + id]) return;
-  if (!confirm('متأكد إنك عاوز تمسح "' + (it ? it.name : "الصنف") + '"؟ مينفعش تتراجع.')) return;
+  if (!(await UI.confirm('متأكد إنك عاوز تمسح "' + (it ? it.name : "الصنف") + '"؟ مينفعش تتراجع.', { title: "مسح الصنف", okText: "امسح", danger: true }))) return;
   _busy["del:" + id] = true;
   api("adminDeleteItem", PW, id)
     .then(function (res) {
@@ -3269,11 +3270,11 @@ function saveGroup() {
       $("groupModalError").textContent = err.message;
     });
 }
-function deleteGroup(id) {
+async function deleteGroup(id) {
   var n = groupItemCount(id);
   if (n) return showToast("فيه " + n + " صنف في المجموعة دي — انقلهم لمجموعة تانية الأول", true);
   if (_busy["delg:" + id]) return;
-  if (!confirm("متأكد إنك عاوز تمسح المجموعة دي؟")) return;
+  if (!(await UI.confirm("متأكد إنك عاوز تمسح المجموعة دي؟", { title: "مسح المجموعة", okText: "امسح", danger: true }))) return;
   _busy["delg:" + id] = true;
   api("adminDeleteGroup", PW, id)
     .then(function (res) {
@@ -3442,14 +3443,14 @@ function saveSettings() {
       $("settingsError").textContent = err.message;
     });
 }
-function changeAdminPassword() {
+async function changeAdminPassword() {
   var errEl = $("passwordError");
   errEl.textContent = "";
   var p1 = $("s_new_password").value;
   var p2 = $("s_new_password2").value;
   if (!p1 || p1.length < 4) return (errEl.textContent = "كلمة السر لازم تكون ٤ حروف/أرقام على الأقل");
   if (p1 !== p2) return (errEl.textContent = "كلمتا السر مش متطابقتين");
-  if (!confirm("متأكد إنك عاوز تغيّر كلمة السر؟ هتحتاجها في تسجيل الدخول الجاي")) return;
+  if (!(await UI.confirm("متأكد إنك عاوز تغيّر كلمة السر؟ هتحتاجها في تسجيل الدخول الجاي", { title: "تغيير كلمة السر", okText: "غيّر" }))) return;
   var pbtn = [$("pwChangeBtn")];
   if (!busyStart("pw", pbtn, "جاري التحديث...")) return;
   api("adminChangePassword", PW, p1)
@@ -3536,8 +3537,8 @@ function openItemModal(id, duplicate) {
     $(duplicate ? "f_code" : "f_name").focus();
   }, 30);
 }
-function closeItemModal(force) {
-  if (!force && modalDirty && !confirm("فيه تعديلات متحفظتش. تقفل من غير حفظ؟")) return;
+async function closeItemModal(force) {
+  if (!force && modalDirty && !(await UI.confirm("فيه تعديلات متحفظتش. تقفل من غير حفظ؟", { title: "تعديلات غير محفوظة", okText: "اقفل من غير حفظ", cancelText: "كمّل تعديل", danger: true }))) return;
   $("itemModal").classList.remove("show");
   modalDirty = false;
 }
@@ -3697,7 +3698,7 @@ function updatePreview() {
 }
 
 // ===== حفظ الصنف =====
-function saveItem() {
+async function saveItem() {
   if (_busy.item) return; // الحفظ شغال بالفعل — تجاهل الدوسة التانية
   var errEl = $("itemModalError");
   errEl.textContent = "";
@@ -3744,7 +3745,7 @@ function saveItem() {
   var dup = ITEMS.some(function (x) {
     return String(x.code).trim().toLowerCase() === payload.code.toLowerCase() && String(x.id) !== String(currentEditItemId || "");
   });
-  if (dup && !confirm('الكود "' + payload.code + '" موجود قبل كده في صنف تاني. تكمّل برضو؟')) return;
+  if (dup && !(await UI.confirm('الكود "' + payload.code + '" موجود قبل كده في صنف تاني. تكمّل برضو؟', { title: "كود مكرر", okText: "كمّل برضو" }))) return;
 
   var btns = [$("itemSaveBtn")];
   if (!busyStart("item", btns)) return;
@@ -3884,8 +3885,8 @@ function pickExtraImages() {
     });
   });
 }
-function addExtraImageUrl() {
-  var u = window.prompt("الصق رابط الصورة:", "");
+async function addExtraImageUrl() {
+  var u = await UI.prompt("الصق رابط الصورة:", "", { placeholder: "https://..." });
   if (!u || !u.trim()) return;
   currentExtraImages.push(u.trim());
   modalDirty = true;
@@ -4116,15 +4117,10 @@ window.addEventListener("beforeunload", function (e) {
   }
 });
 
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", function () {
-    navigator.serviceWorker.register("/sw.js").catch(function (err) {
-      console.warn("Service worker registration failed:", err);
-    });
-  });
-}
+/* تسجيل الـ Service Worker بقى في /assets/js/sw-register.js */
 
     </script>
       <script src="/assets/js/custom-select.js"></script>
+      <script src="/assets/js/sw-register.js"></script>
   </body>
 </html>

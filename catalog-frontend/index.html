@@ -3434,6 +3434,7 @@
     </script>
     <link rel="stylesheet" href="/assets/css/amazon-theme.css" />
     <link rel="stylesheet" href="/assets/css/custom-select.css" />
+    <script src="/assets/js/ui-dialogs.js"></script>
   </head>
   <body>
     <!-- ═══════════════════════════════════════════════════════════
@@ -5139,10 +5140,10 @@
         };
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(url).then(done, function () {
-            window.prompt("انسخ الرابط:", url);
+            UI.prompt("انسخ الرابط:", url, { okText: "تمام" });
           });
         } else {
-          window.prompt("انسخ الرابط:", url);
+          UI.prompt("انسخ الرابط:", url, { okText: "تمام" });
         }
       }
       function _openItemFromUrl() {
@@ -7063,15 +7064,8 @@
         console.error("Uncaught error:", e.error || e.message);
       });
     </script>
-    <script>
-      if ("serviceWorker" in navigator) {
-        window.addEventListener("load", function () {
-          navigator.serviceWorker.register("/sw.js").catch(function (err) {
-            console.warn("Service worker registration failed:", err);
-          });
-        });
-      }
-    </script>
+    
       <script src="/assets/js/custom-select.js"></script>
+      <script src="/assets/js/sw-register.js"></script>
   </body>
 </html>

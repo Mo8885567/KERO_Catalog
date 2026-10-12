@@ -1,21 +1,16 @@
-// Service Worker بسيط — بيخلي الموقع "قابل للتثبيت" (PWA)
-// وبيعمل كاش لملفات الواجهة الثابتة (HTML/CSS/JS/الخطوط/الأيقونات)
-// من غير ما يلمس طلبات البيانات اللي رايحة لـ Google Apps Script
+// Service Worker — بيخلي الموقع قابل للتثبيت (PWA) من غير ما يعلّق على نسخة قديمة.
+// القاعدة: أي صفحة / JS / CSS بتتجاب من النت الأول (أحدث نسخة)، والكاش بيُستخدم
+// بس لو النت واقع. الخطوط والصور والأيقونات (ملفات ثابتة) بتتخزن للسرعة.
+// ملحوظة: غيّر CACHE_VERSION مع كل نشر لو عايز تمسح الكاش القديم بالكامل.
 
-const CACHE_VERSION = "keroman-v5";
+const CACHE_VERSION = "keroman-v6";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 
-// أهم الملفات اللي المفروض تتخزن من أول ما الموقع يتفتح
 const PRECACHE_URLS = [
-  "/",
   "/manifest.json",
   "/assets/logo/favicon-32.png",
   "/assets/logo/favicon-192.png",
   "/assets/logo/favicon-512.png",
-  "/assets/fonts/fonts.css",
-  "/assets/icons/tabler-icons.min.css",
-  "/assets/css/custom-select.css",
-  "/assets/js/custom-select.js",
 ];
 
 self.addEventListener("install", (event) => {
@@ -32,39 +27,57 @@ self.addEventListener("activate", (event) => {
     caches
       .keys()
       .then((keys) =>
-        Promise.all(
-          keys
-            .filter((key) => key.startsWith("keroman-") && key !== STATIC_CACHE)
-            .map((key) => caches.delete(key))
-        )
+        Promise.all(keys.filter((key) => key !== STATIC_CACHE).map((key) => caches.delete(key)))
       )
       .then(() => self.clients.claim())
   );
 });
 
+self.addEventListener("message", (event) => {
+  if (event.data === "SKIP_WAITING") self.skipWaiting();
+});
+
+// ملفات ثابتة مش بتتغير غالبًا → cache-first
+function isStaticAsset(url) {
+  return /\.(woff2?|ttf|png|jpe?g|webp|svg|ico|gif)$/i.test(url.pathname);
+}
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
+  const url = new URL(request.url);
 
-  // متلمسش غير GET، وسيب أي حاجة رايحة لسيرفر خارجي (Apps Script / Google Drive)
-  // تروح للنت على طول عشان بيانات الكتالوج تفضل لايف ومحدّثة
-  if (request.method !== "GET" || new URL(request.url).origin !== self.location.origin) {
+  // متلمسش غير GET من نفس الدومين (بيانات Apps Script تروح للنت على طول)
+  if (request.method !== "GET" || url.origin !== self.location.origin) return;
+  // طلبات الـ API بتاعتنا دايمًا من النت
+  if (url.pathname.startsWith("/api/")) return;
+
+  if (isStaticAsset(url)) {
+    event.respondWith(
+      caches.match(request).then(
+        (cached) =>
+          cached ||
+          fetch(request).then((res) => {
+            if (res && res.ok) {
+              const clone = res.clone();
+              caches.open(STATIC_CACHE).then((c) => c.put(request, clone));
+            }
+            return res;
+          })
+      )
+    );
     return;
   }
 
+  // HTML / JS / CSS / JSON → network-first (cache: "no-cache" بيتخطى كاش المتصفح HTTP)
   event.respondWith(
-    caches.match(request).then((cached) => {
-      const network = fetch(request)
-        .then((response) => {
-          if (response && response.ok && !response.redirected) {
-            const clone = response.clone();
-            caches.open(STATIC_CACHE).then((cache) => cache.put(request, clone));
-          }
-          return response;
-        })
-        .catch(() => cached);
-
-      // Cache-first للسرعة، مع تحديث في الخلفية (stale-while-revalidate)
-      return cached || network;
-    })
+    fetch(request, { cache: "no-cache" })
+      .then((res) => {
+        if (res && res.ok && !res.redirected) {
+          const clone = res.clone();
+          caches.open(STATIC_CACHE).then((c) => c.put(request, clone));
+        }
+        return res;
+      })
+      .catch(() => caches.match(request))
   );
 });

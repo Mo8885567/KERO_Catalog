@@ -38,19 +38,31 @@
     ping: true,
   };
 
+  // دوال القراءة (آمن نعيد محاولتها). أي دالة تانية = كتابة في الشيت:
+  // بتتبعت مرة واحدة بس من غير إعادة محاولة، ومعاها رقم طلب فريد (rid)
+  // عشان الباكيند ما ينفّذهاش مرتين حتى لو الطلب وصل مرتين.
+  var READ_FNS = {
+    getCatalogPublicData: true, resolveLinkedCatalog: true, resolveLinkedCatalogFull: true, ping: true,
+    adminLogin: true, adminGetData: true, adminGetSettings: true, adminGetOrders: true, adminListLinks: true,
+  };
+  function _newRid(fnName) {
+    return fnName + '-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+  }
+
   var PROXY_PATH = '/api/gas';
   var REQUEST_TIMEOUT_MS = 20000;
+  var WRITE_TIMEOUT_MS = 60000;
   // لو نداء البروكسي رجّع 404 (يعني الفانكشن مش متاحة على المنصة دي —
   // مثلاً استضافة ثابتة بحتة بدون Serverless Functions) بنوقف نجرب
   // البروكسي تاني في نفس الجلسة ونرجع مباشرة لنداء Google القديم
   var _proxyUnavailable = false;
 
-  function _fetchWithTimeout(url, options) {
+  function _fetchWithTimeout(url, options, timeoutMs) {
     var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
     var timer = null;
     if (controller) {
       options = Object.assign({}, options, { signal: controller.signal });
-      timer = setTimeout(function () { controller.abort(); }, REQUEST_TIMEOUT_MS);
+      timer = setTimeout(function () { controller.abort(); }, timeoutMs || REQUEST_TIMEOUT_MS);
     }
     return fetch(url, options).finally(function () {
       if (timer) clearTimeout(timer);
@@ -87,18 +99,20 @@
 
   // ── استدعاء عبر البروكسي على /api/gas (بدون مشاكل CORS، ومع كاش
   //    CDN للدوال القرائية) ──────────────────────────────────────
-  function _callViaProxy(fnName, args) {
+  function _callViaProxy(fnName, args, rid) {
     var isCacheable = !!CACHEABLE_FNS[fnName];
+    var isRead = !!READ_FNS[fnName];
     var req;
     if (isCacheable) {
       var qs = 'fn=' + encodeURIComponent(fnName) + '&args=' + encodeURIComponent(JSON.stringify(args || []));
       req = _fetchWithRetry(PROXY_PATH + '?' + qs, { method: 'GET' });
     } else {
-      req = _fetchWithRetry(PROXY_PATH, {
+      var opts = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fn: fnName, args: args || [] }),
-      });
+        body: JSON.stringify({ fn: fnName, args: args || [], rid: isRead ? undefined : rid }),
+      };
+      req = isRead ? _fetchWithRetry(PROXY_PATH, opts) : _fetchWithTimeout(PROXY_PATH, opts, WRITE_TIMEOUT_MS);
     }
     return req.then(function (res) {
       if (res.status === 404) {
@@ -115,21 +129,23 @@
 
   // ── استدعاء مباشر لـ Google (fallback قديم — بيتستخدم بس لو
   //    البروكسي مش موجود على المنصة اللي الموقع منشور عليها) ──────
-  function _callDirect(fnName, args) {
+  function _callDirect(fnName, args, rid) {
     var url = _getGasUrl();
     if (!url) {
       return Promise.reject(new Error(
         'GAS_URL غير مضبوطة. انقر على "إعداد الاتصال" في صفحة الدخول.'
       ));
     }
-    var payload = JSON.stringify({ fn: fnName, args: args || [] });
-    return _fetchWithRetry(url, {
+    var isRead = !!READ_FNS[fnName];
+    var payload = JSON.stringify({ fn: fnName, args: args || [], rid: isRead ? undefined : rid });
+    var directOpts = {
       method: 'POST',
       mode: 'cors',
       redirect: 'follow',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: payload,
-    })
+    };
+    return (isRead ? _fetchWithRetry(url, directOpts) : _fetchWithTimeout(url, directOpts, WRITE_TIMEOUT_MS))
     .then(function (res) {
       if (!res.ok) {
         throw new Error('خطأ HTTP ' + res.status + ' عند استدعاء: ' + fnName);
@@ -143,13 +159,14 @@
 
   // ── نقطة الدخول الموحّدة: بتفضّل البروكسي دايمًا (أسرع وأثبت)،
   //    وبترجع تلقائيًا للنداء المباشر بس لو البروكسي غير متاح ──────
-  function _callGAS(fnName, args) {
+  function _callGAS(fnName, args, rid) {
+    rid = rid || _newRid(fnName);
     if (_proxyUnavailable) {
-      return _callDirect(fnName, args);
+      return _callDirect(fnName, args, rid);
     }
-    return _callViaProxy(fnName, args).catch(function (err) {
+    return _callViaProxy(fnName, args, rid).catch(function (err) {
       if (err && err._proxyMissing) {
-        return _callDirect(fnName, args);
+        return _callDirect(fnName, args, rid);
       }
       throw err;
     });

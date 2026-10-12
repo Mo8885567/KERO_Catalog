@@ -1,0 +1,304 @@
+/* ═══════════════════════════════════════════════════════════════
+   دروب داون مخصص (Custom Select)
+   - بيستبدل <select> الافتراضي بتصميم موحّد، والـ <select> الأصلي
+     بيفضل موجود ومخفي عشان القيمة والـ onchange والـ JS القديم يفضلوا شغالين.
+   - بيتلوّن تلقائي مع الوضع الليلي من متغيرات الصفحة (--surface, --border ...).
+   - عشان تستثني select معين: ضيف عليه data-native
+   ═══════════════════════════════════════════════════════════════ */
+
+.cs {
+  --cs-accent: var(--accent, #ff9900);
+  --cs-fs: 14px;
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: middle;
+  font-family: var(--font, inherit);
+}
+.form-field .cs,
+.cs.cs-block {
+  display: block;
+  width: 100%;
+}
+
+/* الـ select الأصلي: مخفي لكن موجود في الـ DOM */
+.cs > select {
+  position: absolute !important;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* ===== الزرار (اللي بيظهر مكان الـ select) ===== */
+.cs-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 12px;
+  border: 1px solid var(--border2, #adb1b8);
+  border-radius: var(--radius-sm, 8px);
+  background: var(--surface, #fff);
+  color: var(--text, #0f1111);
+  font-family: inherit;
+  font-size: var(--cs-fs);
+  line-height: 1.4;
+  text-align: start;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.cs-trigger:hover {
+  border-color: var(--text3, #6f7373);
+}
+.cs-trigger:focus-visible,
+.cs.cs-open .cs-trigger {
+  outline: none;
+  border-color: var(--cs-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--cs-accent) 28%, transparent);
+}
+.cs-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cs-label.cs-placeholder {
+  color: var(--text3, #6f7373);
+}
+.cs-chevron {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--text3, #6f7373);
+  transition: transform 0.2s ease;
+}
+.cs.cs-open .cs-chevron {
+  transform: rotate(180deg);
+  color: var(--cs-accent);
+}
+.cs.cs-disabled .cs-trigger {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: var(--surface2, #f3f3f3);
+}
+
+/* حجم أصغر (للأماكن اللي الـ select فيها صغير زي الترتيب) */
+.cs.cs-sm .cs-trigger {
+  min-height: 30px;
+  padding: 4px 10px;
+}
+
+/* جوه شريط الإجراءات الجماعية (خلفية غامقة ثابتة) */
+.bulk-bar .cs-trigger {
+  background: #fff;
+  color: #0f1111;
+  border-color: rgba(255, 255, 255, 0.35);
+  min-height: 32px;
+  padding: 5px 10px;
+}
+.bulk-bar .cs-chevron,
+.bulk-bar .cs-label.cs-placeholder {
+  color: #6f7373;
+}
+
+/* ===== القائمة المنسدلة ===== */
+.cs-panel {
+  position: fixed;
+  z-index: 100000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface, #fff);
+  color: var(--text, #0f1111);
+  border: 1px solid var(--border, #d5d9d9);
+  border-radius: 12px;
+  box-shadow:
+    0 12px 32px rgba(15, 17, 17, 0.18),
+    0 2px 8px rgba(15, 17, 17, 0.08);
+  font-family: var(--font, inherit);
+  font-size: var(--cs-fs, 14px);
+  animation: cs-pop 0.14s ease-out;
+  transform-origin: top center;
+}
+.cs-panel.cs-up {
+  transform-origin: bottom center;
+}
+@keyframes cs-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.cs-panel.cs-up {
+  animation-name: cs-pop-up;
+}
+@keyframes cs-pop-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.cs-search {
+  flex: none;
+  padding: 8px;
+  border-bottom: 1px solid var(--border, #e5e5e5);
+  background: var(--surface, #fff);
+}
+.cs-search input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border2, #adb1b8);
+  border-radius: 8px;
+  background: var(--surface2, #f7f7f7);
+  color: var(--text, #0f1111);
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+}
+.cs-search input:focus {
+  border-color: var(--cs-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--cs-accent) 25%, transparent);
+}
+
+.cs-list {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 6px;
+  margin: 0;
+  list-style: none;
+  scrollbar-width: thin;
+}
+.cs-group {
+  padding: 8px 10px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text3, #6f7373);
+  letter-spacing: 0.02em;
+}
+.cs-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  line-height: 1.4;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.cs-option-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cs-option.cs-active {
+  background: var(--surface2, #f3f3f3);
+}
+.cs-option.cs-selected {
+  font-weight: 600;
+  color: var(--cs-accent);
+  background: color-mix(in srgb, var(--cs-accent) 12%, transparent);
+}
+.cs-option.cs-selected.cs-active {
+  background: color-mix(in srgb, var(--cs-accent) 20%, transparent);
+}
+.cs-option.cs-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.cs-check {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  visibility: hidden;
+}
+.cs-option.cs-selected .cs-check {
+  visibility: visible;
+}
+.cs-empty {
+  padding: 14px 10px;
+  text-align: center;
+  color: var(--text3, #6f7373);
+  font-size: 13px;
+}
+
+/* ===== الموبايل: القائمة بتطلع من تحت (Bottom Sheet) ===== */
+.cs-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: rgba(15, 17, 17, 0.45);
+  animation: cs-fade 0.15s ease-out;
+}
+@keyframes cs-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.cs-panel.cs-sheet {
+  inset: auto 0 0 0 !important;
+  width: auto !important;
+  max-height: 70vh;
+  border-radius: 18px 18px 0 0;
+  border-bottom: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  animation: cs-slide 0.2s ease-out;
+}
+.cs-panel.cs-sheet::before {
+  content: "";
+  flex: none;
+  width: 38px;
+  height: 4px;
+  margin: 8px auto 2px;
+  border-radius: 4px;
+  background: var(--border2, #ccc);
+}
+.cs-panel.cs-sheet .cs-list {
+  max-height: none !important;
+}
+.cs-panel.cs-sheet .cs-option {
+  padding: 13px 12px;
+  font-size: 15px;
+}
+@keyframes cs-slide {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-panel,
+  .cs-backdrop,
+  .cs-chevron {
+    animation: none !important;
+    transition: none !important;
+  }
+}

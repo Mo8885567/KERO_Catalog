@@ -96,9 +96,50 @@ var _ALLOWED_REMOTE_FNS = [
   'ping',
 ];
 
+// ── منع تنفيذ نفس عملية الكتابة مرتين ───────────────────────────
+//  الفرونت بيبعت مع كل نداء رقم طلب فريد (rid). لو نفس الـ rid وصل تاني
+//  (إعادة محاولة من الشبكة/البروكسي أو دوسة مكررة) مش بننفّذ العملية من
+//  جديد: لو الأولى خلصت بنرجّع نفس نتيجتها، ولو لسه شغالة بنستناها.
+var _WRITE_FNS = [
+  'adminSaveItem', 'adminDeleteItem', 'adminSaveGroup', 'adminDeleteGroup',
+  'adminSaveSettings', 'adminChangePassword', 'adminBulkUpdate', 'adminReorderGroups',
+  'adminUploadImage', 'adminCreateLink', 'adminSetLinkActive', 'adminDeleteLink',
+  'logPublicCatalogWhatsapp',
+];
+// بترجّع JSON النتيجة المحفوظة لو الطلب اتنفّذ قبل كده، أو null لو لازم ننفّذه
+function _ridBegin(rid) {
+  var cache = CacheService.getScriptCache();
+  for (var attempt = 0; attempt < 50; attempt++) {
+    var lock = LockService.getScriptLock();
+    lock.waitLock(10000);
+    try {
+      var done = cache.get('rid_' + rid);
+      if (done) return done;
+      if (!cache.get('ridrun_' + rid)) {
+        cache.put('ridrun_' + rid, '1', 120);
+        return null;
+      }
+    } finally {
+      lock.releaseLock();
+    }
+    Utilities.sleep(500); // نفس الطلب لسه شغال — نستناه
+  }
+  return JSON.stringify({ error: 'العملية لسه شغالة — حدّث القائمة وتأكد قبل ما تحاول تاني' });
+}
+function _ridEnd(rid, json) {
+  var cache = CacheService.getScriptCache();
+  try {
+    if (json.length < 90000) cache.put('rid_' + rid, json, 600);
+  } catch (e) {}
+  try {
+    cache.remove('ridrun_' + rid);
+  } catch (e) {}
+}
+
 function doPost(e) {
   var output = ContentService.createTextOutput();
   output.setMimeType(ContentService.MimeType.JSON);
+  var rid = '';
 
   try {
     var payload = JSON.parse(e.postData.contents);
@@ -107,12 +148,28 @@ function doPost(e) {
 
     if (_ALLOWED_REMOTE_FNS.indexOf(fn) === -1 || typeof this[fn] !== 'function') {
       output.setContent(JSON.stringify({ error: 'Unknown or disallowed function: ' + fn }));
-    } else {
-      var result = this[fn].apply(this, args);
-      output.setContent(JSON.stringify({ result: result }));
+      return output;
     }
+
+    var useRid = payload.rid && _WRITE_FNS.indexOf(fn) !== -1;
+    if (useRid) {
+      rid = String(payload.rid).replace(/[^\w\-]/g, '').slice(0, 64);
+      var prior = rid ? _ridBegin(rid) : null;
+      if (prior) {
+        output.setContent(prior);
+        rid = ''; // مش إحنا اللي بدأنا التنفيذ
+        return output;
+      }
+    }
+
+    var result = this[fn].apply(this, args);
+    var json = JSON.stringify({ result: result });
+    output.setContent(json);
+    if (rid) _ridEnd(rid, json);
   } catch (err) {
-    output.setContent(JSON.stringify({ error: err.message }));
+    var errJson = JSON.stringify({ error: err.message });
+    output.setContent(errJson);
+    if (rid) _ridEnd(rid, errJson);
   }
 
   return output;

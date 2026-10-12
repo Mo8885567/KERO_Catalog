@@ -17,6 +17,7 @@
     <meta name="apple-mobile-web-app-title" content="إدارة الكتالوج" />
     <link href="/assets/fonts/fonts.css" rel="stylesheet" />
     <link rel="stylesheet" href="/assets/icons/tabler-icons.min.css" />
+    <link rel="stylesheet" href="/assets/css/custom-select.css" />
     <style>
 *,
 *::before,
@@ -763,6 +764,22 @@ tbody tr.off {
   font-family: "JetBrains Mono", ui-monospace, monospace;
   direction: ltr;
   display: inline-block;
+}
+.c-code {
+  white-space: nowrap;
+}
+.code-badge {
+  display: inline-block;
+  direction: ltr;
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 .dots {
   display: inline-flex;
@@ -1537,6 +1554,14 @@ tbody tr.off {
   background: transparent;
   flex-shrink: 0;
 }
+.eyedropper-btn {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  background: var(--surface);
+}
 .color-name-input {
   flex: 1;
   padding: 8px 10px;
@@ -1649,6 +1674,7 @@ html[data-theme="dark"] .toast.err {
     grid-template-columns: 28px 1fr auto;
     grid-template-areas:
       "chk item act"
+      ". code code"
       ". price qty"
       ". status status";
     gap: 6px 10px;
@@ -1672,6 +1698,9 @@ html[data-theme="dark"] .toast.err {
   }
   #itemsTable td.c-act {
     grid-area: act;
+  }
+  #itemsTable td.c-code {
+    grid-area: code;
   }
   #itemsTable td.c-price {
     grid-area: price;
@@ -1814,6 +1843,7 @@ html[data-theme="dark"] .toast.err {
                   <tr>
                     <th style="width: 34px"><input type="checkbox" id="selAll" onchange="toggleSelectAll(this.checked)" aria-label="تحديد الكل" /></th>
                     <th>الصنف</th>
+                    <th style="width: 120px">الكود</th>
                     <th>السعر</th>
                     <th>الكمية</th>
                     <th>الحالة</th>
@@ -1889,7 +1919,7 @@ html[data-theme="dark"] .toast.err {
               </div>
               <div class="field-error" id="settingsError"></div>
               <div class="settings-actions">
-                <button class="btn btn-primary" onclick="saveSettings()"><i class="ti ti-check"></i> حفظ بيانات المتجر</button>
+                <button class="btn btn-primary js-save-settings" onclick="saveSettings()"><i class="ti ti-check"></i> حفظ بيانات المتجر</button>
               </div>
             </div>
 
@@ -1918,7 +1948,7 @@ html[data-theme="dark"] .toast.err {
                 </div>
               </div>
               <div class="settings-actions">
-                <button class="btn btn-primary" onclick="saveSettings()"><i class="ti ti-check"></i> حفظ</button>
+                <button class="btn btn-primary js-save-settings" onclick="saveSettings()"><i class="ti ti-check"></i> حفظ</button>
               </div>
             </div>
 
@@ -1940,7 +1970,7 @@ html[data-theme="dark"] .toast.err {
               </div>
               <div class="field-error" id="passwordError"></div>
               <div class="settings-actions">
-                <button class="btn btn-danger" onclick="changeAdminPassword()"><i class="ti ti-key"></i> تحديث كلمة السر</button>
+                <button class="btn btn-danger" id="pwChangeBtn" onclick="changeAdminPassword()"><i class="ti ti-key"></i> تحديث كلمة السر</button>
               </div>
             </div>
           </div>
@@ -2094,7 +2124,7 @@ html[data-theme="dark"] .toast.err {
         </div>
         <div class="modal-actions">
           <button class="btn" onclick="closeGroupModal()">إلغاء</button>
-          <button class="btn btn-primary" onclick="saveGroup()"><i class="ti ti-check"></i> حفظ</button>
+          <button class="btn btn-primary" id="groupSaveBtn" onclick="saveGroup()"><i class="ti ti-check"></i> حفظ</button>
         </div>
       </div>
     </div>
@@ -2229,20 +2259,57 @@ function fromLocalInput(v) {
 }
 
 // نداء موحّد للباكيند بصيغة Promise. لو التوكن انتهى → رجوع لشاشة الدخول.
+var READ_FNS = { adminGetData: 1, adminGetSettings: 1, adminGetOrders: 1, adminLogin: 1, getCatalogPublicData: 1 };
 function api(fn) {
   var args = Array.prototype.slice.call(arguments, 1);
+  var isWrite = !READ_FNS[fn];
   return new Promise(function (resolve, reject) {
+    // لو الحفظ اتأخر نطمّن المستخدم ونقوله ميدوسش تاني
+    var slow = isWrite
+      ? setTimeout(function () {
+          showToast("السيرفر بطيء شوية — استنى، متدوسش حفظ تاني");
+        }, 6000)
+      : null;
     google.script.run
       .withSuccessHandler(function (res) {
+        clearTimeout(slow);
         if (res && res.success === false && res.message === "غير مصرح" && PW) {
           forceLogin("الجلسة انتهت، سجّل دخولك تاني");
         }
         resolve(res);
       })
       .withFailureHandler(function (err) {
+        clearTimeout(slow);
+        var msg = err && err.message ? err.message : String(err);
+        if (/abort|timed? ?out/i.test(msg)) {
+          err = new Error("السيرفر اتأخر في الرد. الحفظ ممكن يكون تم — راجع القائمة قبل ما تحاول تاني");
+          if (isWrite) setTimeout(function () { loadData(false); }, 500);
+        }
         reject(err instanceof Error ? err : new Error(String(err)));
       })
       [fn].apply(null, args);
+  });
+}
+
+// ===== حماية من الدوس المتكرر: عملية واحدة لكل مفتاح في نفس الوقت =====
+var _busy = {};
+function busyStart(key, btns, label) {
+  if (_busy[key]) return false;
+  _busy[key] = true;
+  (btns || []).forEach(function (b) {
+    if (!b) return;
+    b._orig = b.innerHTML;
+    b.disabled = true;
+    b.innerHTML = '<span class="btn-spinner"></span> ' + (label || "جاري الحفظ...");
+  });
+  return true;
+}
+function busyEnd(key, btns) {
+  delete _busy[key];
+  (btns || []).forEach(function (b) {
+    if (!b) return;
+    b.disabled = false;
+    if (b._orig != null) b.innerHTML = b._orig;
   });
 }
 
@@ -2369,7 +2436,7 @@ function loadData(showSkeleton) {
 function _setItemsLoading() {
   var body = $("itemsBody");
   var rows = "";
-  for (var i = 0; i < 6; i++) rows += '<tr><td colspan="6"><div class="skeleton-bar"></div></td></tr>';
+  for (var i = 0; i < 6; i++) rows += '<tr><td colspan="7"><div class="skeleton-bar"></div></td></tr>';
   body.innerHTML = rows;
   $("itemsEmpty").hidden = true;
 }
@@ -2742,8 +2809,9 @@ function itemRowHtml(it) {
   return (
     '<tr data-id="' + esc(id) + '" class="' + (SELECTED[id] ? "selected " : "") + (act ? "" : "off") + '">' +
     '<td class="c-chk"><input type="checkbox" ' + (SELECTED[id] ? "checked" : "") + ' onchange="toggleSelect(\'' + esc(id) + '\',this.checked)" aria-label="تحديد الصنف"></td>' +
-    '<td class="c-item"><div class="cell-item">' + thumbHtml(it) + '<div><div class="nm">' + esc(it.name) + pills + '</div><div class="meta"><span class="code">' + esc(it.code) + "</span>" +
-    (groupName(it.group_id) ? " · " + esc(groupName(it.group_id)) : "") + (sizes ? " · " + esc(sizes.replace(/,/g, " ")) : "") + (dots ? '<span class="dots">' + dots + "</span>" : "") + "</div></div></div></td>" +
+    '<td class="c-item"><div class="cell-item">' + thumbHtml(it) + '<div><div class="nm">' + esc(it.name) + pills + '</div><div class="meta">' +
+    [groupName(it.group_id) ? esc(groupName(it.group_id)) : "", sizes ? esc(sizes.replace(/,/g, " ")) : ""].filter(Boolean).join(" · ") + (dots ? '<span class="dots">' + dots + "</span>" : "") + "</div></div></div></td>" +
+    '<td class="c-code"><span class="code-badge">' + (esc(it.code) || "—") + "</span></td>" +
     '<td class="c-price"><input class="num-input" type="number" min="0" step="0.01" value="' + esc(num(it.selling_price)) + '" data-field="selling_price" data-orig="' + esc(num(it.selling_price)) +
     '" onchange="inlineEdit(\'' + esc(id) + '\',this)" aria-label="سعر البيع">' + priceSub + "</td>" +
     '<td class="c-qty"><input class="num-input" type="number" min="0" step="1" value="' + esc(num(it.pub_qty)) + '" data-field="pub_qty" data-orig="' + esc(num(it.pub_qty)) +
@@ -2829,6 +2897,14 @@ function _syncBulkBar(list) {
 // بيبعت على دفعات (الباكيند حده ٥٠٠ في النداء) ثم بيحدّث البيانات مرة واحدة
 function bulkApply(ids, changes, okMsg) {
   if (!ids.length) return Promise.resolve(false);
+  if (_busy.bulk) {
+    showToast("في عملية شغالة، استنى لحظة");
+    return Promise.resolve(false);
+  }
+  _busy.bulk = true;
+  document.querySelectorAll("#bulkBar button").forEach(function (b) {
+    b.disabled = true;
+  });
   var chunks = [];
   for (var i = 0; i < ids.length; i += 200) chunks.push(ids.slice(i, i + 200));
   var done = 0;
@@ -2844,14 +2920,19 @@ function bulkApply(ids, changes, okMsg) {
   return chain
     .then(function () {
       showToast((okMsg || "اتحدّث") + " (" + fmt(done) + " صنف)");
-      return loadData(false).then(function () {
-        return true;
-      });
+      return true;
     })
     .catch(function (err) {
       showToast(err.message, true);
+      return false;
+    })
+    .then(function (ok) {
+      delete _busy.bulk;
+      document.querySelectorAll("#bulkBar button").forEach(function (b) {
+        b.disabled = false;
+      });
       return loadData(false).then(function () {
-        return false;
+        return ok;
       });
     });
 }
@@ -2886,11 +2967,17 @@ function inlineEdit(id, input) {
     return showToast("اكتب رقم صحيح (صفر أو أكبر)", true);
   }
   if (String(n) === input.getAttribute("data-orig")) return;
+  var bk = "inline:" + id + ":" + field;
+  if (_busy[bk]) return;
+  _busy[bk] = true;
+  input.disabled = true;
   input.classList.add("saving");
   var changes = {};
   changes[field] = n;
   api("adminBulkUpdate", PW, [id], changes)
     .then(function (res) {
+      delete _busy[bk];
+      input.disabled = false;
       input.classList.remove("saving");
       if (!res || !res.success) {
         input.value = input.getAttribute("data-orig");
@@ -2903,6 +2990,8 @@ function inlineEdit(id, input) {
       renderDashboard();
     })
     .catch(function (err) {
+      delete _busy[bk];
+      input.disabled = false;
       input.classList.remove("saving");
       input.value = input.getAttribute("data-orig");
       showToast("خطأ: " + err.message, true);
@@ -2910,8 +2999,17 @@ function inlineEdit(id, input) {
 }
 function toggleActive(id, chk) {
   var on = chk.checked;
+  var bk = "active:" + id;
+  if (_busy[bk]) {
+    chk.checked = !on;
+    return;
+  }
+  _busy[bk] = true;
+  chk.disabled = true;
   api("adminBulkUpdate", PW, [id], { active: on })
     .then(function (res) {
+      delete _busy[bk];
+      chk.disabled = false;
       if (!res || !res.success) {
         chk.checked = !on;
         return showToast((res && res.message) || "فشل الحفظ", true);
@@ -2923,6 +3021,8 @@ function toggleActive(id, chk) {
       renderDashboard();
     })
     .catch(function (err) {
+      delete _busy[bk];
+      chk.disabled = false;
       chk.checked = !on;
       showToast("خطأ: " + err.message, true);
     });
@@ -2930,28 +3030,43 @@ function toggleActive(id, chk) {
 function togglePin(id) {
   var it = itemById(id);
   if (!it) return;
+  var bk = "pin:" + id;
+  if (_busy[bk]) return;
+  _busy[bk] = true;
   var next = !truthy(it.featured);
   api("adminBulkUpdate", PW, [id], { featured: next })
     .then(function (res) {
+      delete _busy[bk];
       if (!res || !res.success) return showToast((res && res.message) || "فشل الحفظ", true);
       it.featured = next;
       showToast(next ? "اتثبّت في عروض اليوم" : "اتشال التثبيت");
       renderItems();
     })
     .catch(function (err) {
+      delete _busy[bk];
       showToast("خطأ: " + err.message, true);
     });
 }
 function deleteItem(id) {
   var it = itemById(id);
+  if (_busy["del:" + id]) return;
   if (!confirm('متأكد إنك عاوز تمسح "' + (it ? it.name : "الصنف") + '"؟ مينفعش تتراجع.')) return;
+  _busy["del:" + id] = true;
   api("adminDeleteItem", PW, id)
     .then(function (res) {
+      delete _busy["del:" + id];
       if (!res || !res.success) return showToast((res && res.message) || "فشل المسح", true);
+      // نشيله من القائمة فورًا من غير ما نستنى إعادة التحميل
+      ITEMS = ITEMS.filter(function (x) {
+        return String(x.id) !== String(id);
+      });
+      delete SELECTED[String(id)];
+      renderAll();
       showToast("اتمسح بنجاح");
       loadData(false);
     })
     .catch(function (err) {
+      delete _busy["del:" + id];
       showToast("خطأ: " + err.message, true);
     });
 }
@@ -3128,31 +3243,51 @@ function saveGroup() {
     sort_order: existing ? num(existing.sort_order) : maxOrder + 1,
     hidden: !$("g_visible").checked,
   };
+  var gbtn = [$("groupSaveBtn")];
+  if (!busyStart("group", gbtn)) return;
   api("adminSaveGroup", PW, payload)
     .then(function (res) {
+      busyEnd("group", gbtn);
       if (!res || !res.success) {
         $("groupModalError").textContent = (res && res.message) || "فشل الحفظ";
         return;
       }
+      // نحدّث القائمة فورًا ونقفل المودال، وإعادة التحميل بتتم في الخلفية
+      var gid = res.id || payload.id;
+      var found = GROUPS.find(function (x) {
+        return String(x.id) === String(gid);
+      });
+      if (found) Object.assign(found, payload, { id: gid });
+      else GROUPS.push(Object.assign({}, payload, { id: gid }));
+      renderAll();
       closeGroupModal();
       showToast("اتحفظت بنجاح");
       loadData(false);
     })
     .catch(function (err) {
+      busyEnd("group", gbtn);
       $("groupModalError").textContent = err.message;
     });
 }
 function deleteGroup(id) {
   var n = groupItemCount(id);
   if (n) return showToast("فيه " + n + " صنف في المجموعة دي — انقلهم لمجموعة تانية الأول", true);
+  if (_busy["delg:" + id]) return;
   if (!confirm("متأكد إنك عاوز تمسح المجموعة دي؟")) return;
+  _busy["delg:" + id] = true;
   api("adminDeleteGroup", PW, id)
     .then(function (res) {
+      delete _busy["delg:" + id];
       if (!res || !res.success) return showToast((res && res.message) || "فشل المسح", true);
+      GROUPS = GROUPS.filter(function (g) {
+        return String(g.id) !== String(id);
+      });
+      renderAll();
       showToast("اتمسحت بنجاح");
       loadData(false);
     })
     .catch(function (err) {
+      delete _busy["delg:" + id];
       showToast("خطأ: " + err.message, true);
     });
 }
@@ -3291,8 +3426,11 @@ function saveSettings() {
     banner_text: $("s_banner_text").value.trim(),
     banner_link_group: $("s_banner_link_group").value,
   };
+  var sbtns = Array.prototype.slice.call(document.querySelectorAll(".js-save-settings"));
+  if (!busyStart("settings", sbtns)) return;
   api("adminSaveSettings", PW, payload)
     .then(function (res) {
+      busyEnd("settings", sbtns);
       if (!res || !res.success) {
         $("settingsError").textContent = (res && res.message) || "فشل الحفظ";
         return;
@@ -3300,6 +3438,7 @@ function saveSettings() {
       showToast("اتحفظت الإعدادات بنجاح");
     })
     .catch(function (err) {
+      busyEnd("settings", sbtns);
       $("settingsError").textContent = err.message;
     });
 }
@@ -3311,8 +3450,11 @@ function changeAdminPassword() {
   if (!p1 || p1.length < 4) return (errEl.textContent = "كلمة السر لازم تكون ٤ حروف/أرقام على الأقل");
   if (p1 !== p2) return (errEl.textContent = "كلمتا السر مش متطابقتين");
   if (!confirm("متأكد إنك عاوز تغيّر كلمة السر؟ هتحتاجها في تسجيل الدخول الجاي")) return;
+  var pbtn = [$("pwChangeBtn")];
+  if (!busyStart("pw", pbtn, "جاري التحديث...")) return;
   api("adminChangePassword", PW, p1)
     .then(function (res) {
+      busyEnd("pw", pbtn);
       if (!res || !res.success) {
         errEl.textContent = (res && res.message) || "فشل التغيير";
         return;
@@ -3322,6 +3464,7 @@ function changeAdminPassword() {
       showToast("اتغيّرت كلمة السر بنجاح");
     })
     .catch(function (err) {
+      busyEnd("pw", pbtn);
       errEl.textContent = err.message;
     });
 }
@@ -3555,6 +3698,7 @@ function updatePreview() {
 
 // ===== حفظ الصنف =====
 function saveItem() {
+  if (_busy.item) return; // الحفظ شغال بالفعل — تجاهل الدوسة التانية
   var errEl = $("itemModalError");
   errEl.textContent = "";
   var f = _form();
@@ -3602,21 +3746,28 @@ function saveItem() {
   });
   if (dup && !confirm('الكود "' + payload.code + '" موجود قبل كده في صنف تاني. تكمّل برضو؟')) return;
 
-  var btn = $("itemSaveBtn");
-  btn.disabled = true;
-  btn.innerHTML = '<span class="btn-spinner"></span> جاري الحفظ...';
+  var btns = [$("itemSaveBtn")];
+  if (!busyStart("item", btns)) return;
   api("adminSaveItem", PW, payload)
     .then(function (res) {
-      btn.disabled = false;
-      btn.innerHTML = '<i class="ti ti-check"></i> حفظ';
+      busyEnd("item", btns);
       if (!res || !res.success) return fail((res && res.message) || "فشل الحفظ");
+      // نحدّث القائمة محليًا فورًا (من غير ما نستنى قراءة الشيت كله من الأول)
+      // ونقفل المودال، وإعادة التحميل بتتم في الخلفية للتأكيد
+      var sid = res.id || payload.id;
+      var existing = itemById(sid);
+      if (existing) {
+        Object.assign(existing, payload, { id: sid });
+      } else {
+        ITEMS.unshift(Object.assign({}, payload, { id: sid, created_at: new Date().toISOString() }));
+      }
+      renderAll();
       closeItemModal(true);
       showToast("اتحفظ بنجاح");
       loadData(false);
     })
     .catch(function (err) {
-      btn.disabled = false;
-      btn.innerHTML = '<i class="ti ti-check"></i> حفظ';
+      busyEnd("item", btns);
       fail(err.message);
     });
 }
@@ -3841,6 +3992,7 @@ function renderColorsEditor() {
       return (
         '<div class="color-row"><div class="color-row-head">' +
         '<input type="color" class="color-hex-input" value="' + esc(c.hex || "#94a3b8") + "\" onchange=\"updateColorField(" + ci + ",'hex',this.value)\">" +
+        (window.EyeDropper ? '<button type="button" class="icon-btn eyedropper-btn" onclick="pickColorFromScreen(' + ci + ',this)" title="التقط لون من الشاشة" aria-label="التقط لون من الشاشة"><i class="ti ti-color-picker"></i></button>' : "") +
         '<input type="text" class="color-name-input" placeholder="اسم اللون (مثال: أحمر)" value="' + esc(c.name || "") + "\" onchange=\"updateColorField(" + ci + ",'name',this.value)\">" +
         '<button type="button" class="icon-btn danger" onclick="removeColorRow(' + ci + ')" title="حذف اللون" aria-label="حذف اللون"><i class="ti ti-trash"></i></button></div>' +
         '<div class="color-images-list">' + imgs + "</div>" +
@@ -3861,6 +4013,23 @@ function removeColorRow(ci) {
   modalDirty = true;
   renderColorsEditor();
   updatePreview();
+}
+async function pickColorFromScreen(ci, btn) {
+  if (!window.EyeDropper) {
+    showToast("المتصفح ده مش بيدعم القطّارة — استخدم Chrome أو Edge", true);
+    return;
+  }
+  try {
+    var result = await new EyeDropper().open();
+    var hex = String(result.sRGBHex || "").toLowerCase();
+    if (!/^#[0-9a-f]{6}$/.test(hex)) return;
+    updateColorField(ci, "hex", hex);
+    var row = btn && btn.closest(".color-row-head");
+    var input = row && row.querySelector(".color-hex-input");
+    if (input) input.value = hex;
+  } catch (e) {
+    /* المستخدم لغى الاختيار (Esc) */
+  }
 }
 function updateColorField(ci, field, val) {
   currentColors[ci][field] = val;
@@ -3956,5 +4125,6 @@ if ("serviceWorker" in navigator) {
 }
 
     </script>
+      <script src="/assets/js/custom-select.js"></script>
   </body>
 </html>

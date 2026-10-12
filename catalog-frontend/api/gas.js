@@ -54,22 +54,32 @@ const ALLOWED_FNS = new Set([
   'ping',
 ]);
 
+// دوال القراءة بس (آمن نعيد محاولتها). أي دالة تانية بتكتب في الشيت فبتتنفّذ
+// مرة واحدة من غير إعادة محاولة تلقائية — إعادة المحاولة كانت بتسبب حفظ مزدوج
+// لما Apps Script يتأخر شوية ويكون لسه بيحفظ المحاولة الأولى.
+const READ_FNS = new Set([
+  'getCatalogPublicData', 'resolveLinkedCatalog', 'resolveLinkedCatalogFull', 'ping',
+  'adminLogin', 'adminGetData', 'adminGetSettings', 'adminGetOrders', 'adminListLinks',
+]);
+
 const FRESH_TTL_SEC = 120;   // ثانية — مدة الرد "الطازج" على الـ CDN
 const STALE_TTL_SEC = 600;   // ثانية — بعدها بيفضل يرجّع نسخة قديمة فورًا وهو بيحدّثها بالخلفية
 // مهلة نداء Google الواحد — مضبوطة عشان محاولتين (نداء + إعادة محاولة)
 // يفضلوا في حدود مهلة الفانكشن نفسها على Vercel (راجع vercel.json)
 const UPSTREAM_TIMEOUT_MS = 12000;
+// عمليات الكتابة (حفظ/رفع صور/تعديل جماعي) ممكن تاخد وقت أطول من القراءة
+const WRITE_TIMEOUT_MS = 50000;
 
-function callGAS(fn, args) {
+function callGAS(fn, args, rid, timeoutMs) {
   return new Promise((resolve, reject) => {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
+    const timer = setTimeout(() => controller.abort(), timeoutMs || UPSTREAM_TIMEOUT_MS);
 
     fetch(GAS_URL, {
       method: 'POST',
       redirect: 'follow',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ fn, args: args || [] }),
+      body: JSON.stringify({ fn, args: args || [], rid: rid || undefined }),
       signal: controller.signal,
     })
       .then(async (upstream) => {
@@ -98,11 +108,15 @@ function callGAS(fn, args) {
 
 // محاولة واحدة إضافية عند أي فشل (شبكة/مهلة/HTML غير متوقع) — بيمتص جزء
 // كبير من عدم الانتظام (flakiness) اللي جوجل بيسببه من وقت للتاني
-async function callGASWithRetry(fn, args) {
+async function callGASWithRetry(fn, args, rid) {
+  if (!READ_FNS.has(fn)) {
+    // كتابة: محاولة واحدة بمهلة أطول، من غير إعادة محاولة
+    return await callGAS(fn, args, rid, WRITE_TIMEOUT_MS);
+  }
   try {
-    return await callGAS(fn, args);
+    return await callGAS(fn, args, rid, UPSTREAM_TIMEOUT_MS);
   } catch (e1) {
-    return await callGAS(fn, args);
+    return await callGAS(fn, args, rid, UPSTREAM_TIMEOUT_MS);
   }
 }
 
@@ -118,7 +132,7 @@ module.exports = async (req, res) => {
     return;
   }
 
-  let fn, args;
+  let fn, args, rid;
 
   try {
     if (req.method === 'GET') {
@@ -147,6 +161,7 @@ module.exports = async (req, res) => {
       body = body || {};
       fn = body.fn;
       args = body.args || [];
+      rid = typeof body.rid === 'string' ? body.rid.slice(0, 64) : undefined;
     } else {
       res.setHeader('Cache-Control', 'no-store');
       res.status(405).json({ error: 'Method not allowed' });
@@ -159,7 +174,7 @@ module.exports = async (req, res) => {
       return;
     }
 
-    const result = await callGASWithRetry(fn, args);
+    const result = await callGASWithRetry(fn, args, rid);
 
     const isCacheableRequest =
       req.method === 'GET' && CACHEABLE_FNS.has(fn) && !(result && result.success === false);

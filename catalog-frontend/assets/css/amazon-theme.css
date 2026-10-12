@@ -592,3 +592,62 @@
   font-family: system-ui, sans-serif;
 }
 .fav-header-btn.has-favs > i.ti { color: var(--danger); }
+
+/* ═════════ عروض بتاريخ + بانر الصفحة الرئيسية ═════════ */
+.tag-deal { background: #b12704; }
+.deal-countdown {
+  margin-top: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #b12704;
+}
+.deal-countdown::before { content: "⏱ "; }
+:root[data-theme="dark"] .deal-countdown { color: #ff8a65; }
+
+.home-banner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 150px;
+  margin: 0 0 16px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #232f3e;
+  color: #fff;
+}
+.home-banner.clickable { cursor: pointer; }
+.home-banner > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.home-banner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(270deg, rgba(19, 25, 33, 0.78) 0%, rgba(19, 25, 33, 0.25) 70%, rgba(19, 25, 33, 0) 100%);
+}
+.home-banner-text {
+  position: relative;
+  z-index: 1;
+  padding: 22px 28px;
+  max-width: 560px;
+}
+.home-banner-text h2 { font-size: 24px; font-weight: 800; margin: 0 0 6px; line-height: 1.3; }
+.home-banner-text p { font-size: 14px; margin: 0 0 12px; opacity: 0.95; line-height: 1.6; }
+.home-banner-cta {
+  display: inline-block;
+  background: #ffd814;
+  color: #0f1111;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 8px 18px;
+  border-radius: 999px;
+}
+@media (max-width: 640px) {
+  .home-banner { min-height: 120px; }
+  .home-banner-text { padding: 16px; }
+  .home-banner-text h2 { font-size: 18px; }
+}

@@ -50,6 +50,7 @@ const ALLOWED_FNS = new Set([
   'adminSaveGroup', 'adminDeleteGroup',
   'adminGetSettings', 'adminSaveSettings', 'adminChangePassword',
   'adminListLinks', 'adminCreateLink', 'adminSetLinkActive', 'adminDeleteLink',
+  'adminLogout', 'adminBulkUpdate', 'adminReorderGroups', 'adminUploadImage', 'adminGetOrders',
   'ping',
 ]);
 

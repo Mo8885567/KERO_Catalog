@@ -4118,6 +4118,9 @@
                 source_id: (meta && meta.source_id) || "",
                 customer_name: _URL_CLIENT || "",
                 message: message,
+                // أصناف الطلب بشكل منظّم (للوحة الأدمن: الطلبات + الأكثر طلبًا)
+                items: (meta && meta.items) || undefined,
+                total: (meta && meta.total) || 0,
               });
           } catch (e) {
             /* صامت — لا يجب أن يؤثر على تجربة العميل */
@@ -4206,11 +4209,19 @@
         // بس دلوقتي بتتطبق على صور الأصناف كمان (مش بس اللوجو)
         allItems.forEach(function (it) {
           if (it.image_url) it.image_url = _fixDriveUrl(it.image_url);
+          if (Array.isArray(it.images)) it.images = it.images.map(_fixDriveUrl);
         });
 
         _prepareItems(allItems);
         PUB.freeShipMin = Number(cs.free_ship_min || 0);
         PUB.freeShipNote = cs.free_ship_note || "شحن مجاني";
+        PUB.banner = {
+          enabled: !!cs.banner_enabled,
+          image: cs.banner_image ? _fixDriveUrl(cs.banner_image) : "",
+          title: cs.banner_title || "",
+          text: cs.banner_text || "",
+          group: String(cs.banner_link_group || ""),
+        };
         PUB.items = allItems;
         PUB.groups = allGroups;
         PUB.colors = d.colors || [];
@@ -4248,6 +4259,7 @@
         _render();
         _updateFavUI();
         _openItemFromUrl();
+        _startDealTicker();
       }
 
       function _onError(e) {
@@ -4358,7 +4370,7 @@
           "</span></button>";
 
         PUB.groups.forEach(function (g, i) {
-          if (!used[g.id]) return;
+          if (!used[g.id] || g.hidden) return;
           var cnt = PUB.items.filter(function (it) {
             return it.group === g.id;
           }).length;
@@ -4395,7 +4407,7 @@
         var html =
           '<button class="nav-link nav-all active" data-g="all" onclick="setGroupFilter(\'all\')">☰ كل الأصناف</button>';
         PUB.groups.forEach(function (g) {
-          if (!used[g.id]) return;
+          if (!used[g.id] || g.hidden) return;
           html +=
             '<button class="nav-link" data-g="' +
             _esc(g.id) +
@@ -4641,6 +4653,7 @@
         } else {
           wrap.innerHTML =
             _buildFavBar() +
+            _buildBanner() +
             _buildTopStrip() +
             _buildDealsStrip() +
             _buildGrid(items) +
@@ -4705,7 +4718,9 @@
                 ? '<span class="top-rank">' + (i + 1) + "</span>"
                 : pi.pct && cls === "deals"
                   ? '<span class="top-rank top-rank-deal">خصم ' + pi.pct + "%</span>"
-                  : "") +
+                  : it.featured && cls === "deals"
+                    ? '<span class="top-rank top-rank-deal">مميّز</span>'
+                    : "") +
               '<div class="top-img">' +
               (it.image_url
                 ? '<img src="' +
@@ -4755,18 +4770,55 @@
         if (top.length < 3) return "";
         return _buildStrip("الأعلى طلبًا", "ti-flame", top, "rank", "top");
       }
+      /* بانر الصفحة الرئيسية (من الأدمن ← الإعدادات) — بيظهر في العرض الافتراضي بس */
+      function _buildBanner() {
+        var b = PUB.banner;
+        if (!b || !b.enabled || (!b.image && !b.title) || !_stripsAllowed())
+          return "";
+        var hasGroup =
+          b.group &&
+          PUB.groups.some(function (g) {
+            return g.id === b.group;
+          });
+        return (
+          '<section class="home-banner' +
+          (hasGroup ? " clickable" : "") +
+          '"' +
+          (hasGroup
+            ? " onclick=\"setGroupFilter('" + _esc(b.group) + "')\""
+            : "") +
+          ">" +
+          (b.image
+            ? '<img src="' +
+              _esc(b.image) +
+              '" alt="" onerror="this.style.display=\'none\'">'
+            : "") +
+          '<div class="home-banner-text">' +
+          (b.title ? "<h2>" + _esc(b.title) + "</h2>" : "") +
+          (b.text ? "<p>" + _esc(b.text) + "</p>" : "") +
+          (hasGroup ? '<span class="home-banner-cta">تصفّح الآن</span>' : "") +
+          "</div></section>"
+        );
+      }
       /* عروض اليوم: أعلى الأصناف خصمًا */
       function _buildDealsStrip() {
         if (!_stripsAllowed()) return "";
         var list = PUB.items
           .filter(function (x) {
-            return _priceInfo(x).pct > 0 && _stockStatus(x) !== "out";
+            return (
+              (x.featured || _priceInfo(x).pct > 0) && _stockStatus(x) !== "out"
+            );
           })
           .sort(function (a, b) {
+            /* المثبّتة من الأدمن الأول، وبعدين الأعلى خصمًا */
+            if (!!b.featured !== !!a.featured) return b.featured ? 1 : -1;
             return _priceInfo(b).pct - _priceInfo(a).pct;
           })
           .slice(0, 8);
-        if (list.length < 3) return "";
+        var _hasPinned = list.some(function (x) {
+          return x.featured;
+        });
+        if (list.length < 3 && !_hasPinned) return "";
         return _buildStrip("عروض اليوم", "ti-discount-2", list, "deals", "discount");
       }
       /* شاهدته مؤخرًا (محفوظ في المتصفح بس) */
@@ -4927,10 +4979,66 @@
       }
 
       /* ── تجهيز بيانات الأصناف بعد التحميل: بحث، أسعار الجملة، جديد ── */
+      /* ── عروض بتاريخ (deal_price + deal_start/deal_end) ──────────
+         بتتطبق على ساعة العميل: جوّه الفترة سعر البيع = deal_price
+         والسعر القديم بيبان مشطوب. بره الفترة الأسعار زي ما هي.
+         الدالة آمنة تتنادى أكتر من مرة (بتحفظ الأسعار الأصلية). */
+      function _applyDeal(it, now) {
+        if (it._baseSP === undefined) {
+          it._baseSP = Number(it.selling_price || 0);
+          it._baseOP = Number(it.old_price || 0);
+        }
+        it.selling_price = it._baseSP || it.selling_price;
+        it.old_price = it._baseOP;
+        it._isDeal = false;
+        it._dealEnd = 0;
+        var dp = Number(it.deal_price || 0);
+        if (!(dp > 0) || !(dp < it._baseSP)) return;
+        var st = it.deal_start ? Date.parse(it.deal_start) : NaN;
+        var en = it.deal_end ? Date.parse(it.deal_end) : NaN;
+        if (!isNaN(st) && now < st) return;
+        if (!isNaN(en) && now >= en) return;
+        it.old_price = Math.max(it._baseOP, it._baseSP);
+        it.selling_price = dp;
+        it._isDeal = true;
+        if (!isNaN(en)) it._dealEnd = en;
+      }
+      function _dealText(end) {
+        var ms = end - Date.now();
+        if (ms <= 0) return "انتهى العرض";
+        var m = Math.floor(ms / 60000);
+        var h = Math.floor(m / 60);
+        var d = Math.floor(h / 24);
+        if (d >= 1) return "ينتهي خلال " + d + " يوم " + (h % 24) + " س";
+        if (h >= 1) return "ينتهي خلال " + h + " س " + (m % 60) + " د";
+        return "ينتهي خلال " + Math.max(1, m) + " د";
+      }
+      var _dealTicker = null;
+      function _startDealTicker() {
+        if (_dealTicker) return;
+        _dealTicker = setInterval(function () {
+          var expired = false;
+          document.querySelectorAll("[data-deal-end]").forEach(function (el) {
+            var end = Number(el.getAttribute("data-deal-end"));
+            el.textContent = _dealText(end);
+            if (end <= Date.now() && !el.getAttribute("data-expired")) {
+              el.setAttribute("data-expired", "1");
+              expired = true;
+            }
+          });
+          if (expired) {
+            /* عرض خلص: نرجّع الأسعار الأصلية ونعيد الرسم */
+            _prepareItems(PUB.items);
+            _render();
+          }
+        }, 30000);
+      }
+
       function _prepareItems(list) {
         var now = Date.now();
         list.forEach(function (it) {
           it.code = it.code || it.id || "";
+          _applyDeal(it, now);
           it._hay = _norm(
             (it.code || "") + " " + (it.name || "") + " " + (it.description || ""),
           );
@@ -5222,6 +5330,13 @@
         var tagsHtml =
           (pi.pct
             ? '<span class="card-tag tag-discount">خصم ' + pi.pct + "%</span>"
+            : "") +
+          (it._dealEnd > Date.now()
+            ? '<span class="card-tag tag-deal" data-deal-end="' +
+              it._dealEnd +
+              '">' +
+              _dealText(it._dealEnd) +
+              "</span>"
             : "") +
           (_isTopSeller(it.code)
             ? '<span class="card-tag tag-top"><i class="ti ti-flame"></i> الأكثر طلبًا</span>'
@@ -5783,6 +5898,15 @@
             colorIdx: -1,
           });
         }
+        /* صور إضافية للصنف (مش مربوطة بلون) */
+        (Array.isArray(it.images) ? it.images : []).forEach(function (src, j) {
+          if (!src || src === it.image_url) return;
+          allImgs.push({
+            src: src,
+            label: "صورة " + (j + 2),
+            colorIdx: -1,
+          });
+        });
         colors.forEach(function (c, i) {
           var imgs =
             c.images && c.images.length ? c.images : c.image ? [c.image] : [];
@@ -5834,6 +5958,13 @@
                 '</s> <span class="card-save">خصم ' +
                 _pi.pct +
                 "%</span></div>"
+              : "") +
+            (it._dealEnd > Date.now()
+              ? '<div class="deal-countdown" data-deal-end="' +
+                it._dealEnd +
+                '">' +
+                _dealText(it._dealEnd) +
+                "</div>"
               : "") +
             "</div></div>"
           : "";
@@ -6771,7 +6902,20 @@
             ? "\n\nالإجمالي التقريبي: " + _tot.toLocaleString("en-US") + " ج.م"
             : "") +
           "\n\nأرجو التواصل لإتمام الطلب 🙏";
-        PUB_WA.send(msg, { source_type: "catalog_public_cart" });
+        PUB_WA.send(msg, {
+          source_type: "catalog_public_cart",
+          items: CART.map(function (item) {
+            var it = _cartItemObj(item);
+            return {
+              code: item.code,
+              name: item.name,
+              qty: item.qty,
+              color: item.color || "",
+              unit_price: it && !PUB.urlNoprices ? _unitPriceFor(it, item.qty) : 0,
+            };
+          }),
+          total: PUB.urlNoprices ? 0 : _tot,
+        });
       }
 
       // ── WhatsApp (kept for backward compat) ──────────────────────
@@ -6793,9 +6937,18 @@
           "\n" +
           (color ? "• اللون: " + color + "\n" : "") +
           "\nأرجو التواصل لإتمام الطلب 🙏";
+        var _one = PUB.items.find(function (x) {
+          return x.code === itemId;
+        });
+        var _qtyN = Math.max(1, Number(qty) || 1);
+        var _unit = _one && !PUB.urlNoprices ? _unitPriceFor(_one, _qtyN) : 0;
         PUB_WA.send(msg, {
           source_type: "catalog_public_item",
           source_id: itemId,
+          items: [
+            { code: itemId, name: itemName, qty: _qtyN, color: color, unit_price: _unit },
+          ],
+          total: _unit * _qtyN,
         });
       }
 

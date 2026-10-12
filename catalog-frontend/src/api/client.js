@@ -237,6 +237,7 @@
       'adminSaveItem', 'adminDeleteItem',
       'adminSaveGroup', 'adminDeleteGroup',
       'adminGetSettings', 'adminSaveSettings', 'adminChangePassword',
+      'adminLogout', 'adminBulkUpdate', 'adminReorderGroups', 'adminUploadImage', 'adminGetOrders',
       'ping',
     ];
 

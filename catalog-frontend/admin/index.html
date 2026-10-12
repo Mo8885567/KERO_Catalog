@@ -1812,6 +1812,8 @@ html[data-theme="dark"] .toast.err {
             <select class="select-input" id="itemsSort" onchange="onItemsFilterChange()" aria-label="الترتيب">
               <option value="newest">الأحدث إضافة</option>
               <option value="name">الاسم (أ - ي)</option>
+              <option value="code-asc">الكود: تصاعدي</option>
+              <option value="code-desc">الكود: تنازلي</option>
               <option value="price-asc">السعر: الأقل</option>
               <option value="price-desc">السعر: الأعلى</option>
               <option value="qty-asc">الكمية: الأقل</option>
@@ -2725,6 +2727,8 @@ function filteredItems() {
   var s = itemsState.sort;
   list.sort(function (a, b) {
     if (s === "name") return String(a.name || "").localeCompare(String(b.name || ""), "ar");
+    if (s === "code-asc") return String(a.code || "").localeCompare(String(b.code || ""), "en", { numeric: true, sensitivity: "base" });
+    if (s === "code-desc") return String(b.code || "").localeCompare(String(a.code || ""), "en", { numeric: true, sensitivity: "base" });
     if (s === "price-asc") return num(a.selling_price) - num(b.selling_price);
     if (s === "price-desc") return num(b.selling_price) - num(a.selling_price);
     if (s === "qty-asc") return num(a.pub_qty) - num(b.pub_qty);

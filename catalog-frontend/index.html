@@ -3688,7 +3688,7 @@
         <!-- رأس الدرج (بيظهر على الموبايل فقط) -->
         <div class="drawer-head">
           <span><i class="ti ti-adjustments-horizontal" style="margin-left:6px;vertical-align:-2px"></i>الفلاتر</span>
-          <button type="button" class="drawer-close" onclick="toggleMobileSidebar(true)" aria-label="إغلاق">✕</button>
+          <button type="button" class="fd-close" onclick="toggleMobileSidebar(true)" aria-label="إغلاق">✕</button>
         </div>
         <!-- Stats card -->
         <div class="stats-card">
@@ -4675,7 +4675,7 @@
         } else {
           wrap.innerHTML =
             _buildFavBar() +
-            (window.Interactive ? Interactive.buildHero() : _buildBanner()) +
+            (window.Interactive ? Interactive.buildHero() + Interactive.buildCategories() : _buildBanner()) +
             _buildTopStrip() +
             _buildDealsStrip() +
             _buildNewStrip() +
@@ -5399,7 +5399,7 @@
           "btn-order" + (isDisabled ? " btn-order-disabled" : "");
 
         return (
-          '<div class="card' + (s === "out" && !PUB.urlNoqty ? " card-out" : "") + '" onclick="openDrawer(\'' +
+          '<div class="card' + (s === "out" && !PUB.urlNoqty ? " card-out" : "") + '" data-code="' + _esc(it.code) + '" onclick="openDrawer(\'' +
           _esc(it.code) +
           "')\">" +
           '<div class="card-img-wrap">' +
@@ -7103,6 +7103,7 @@
       <script src="/assets/js/custom-select.js"></script>
       <script src="/assets/js/mobile-shell.js"></script>
       <script src="/assets/js/interactive.js"></script>
+      <script src="/assets/js/features.js"></script>
       <script src="/assets/js/sw-register.js"></script>
   </body>
 </html>

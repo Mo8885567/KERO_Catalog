@@ -53,6 +53,27 @@
       (multi ? '<button class="hero-arrow prev" aria-label="السابق">›</button><button class="hero-arrow next" aria-label="التالي">‹</button><div class="hero-dots">' + dots + "</div>" : "") +
       "</section>";
   }
+  /* ───────── شريط التصنيفات بالصور (زي نون) ───────── */
+  function buildCategories() {
+    if (typeof _stripsAllowed !== "function" || !_stripsAllowed()) return "";
+    var by = {}, order = [];
+    PUB.items.forEach(function (it) {
+      if (!it.group || _stockStatus(it) === "out") return;
+      var c = by[it.group];
+      if (!c) { c = by[it.group] = { n: 0, img: "" }; order.push(it.group); }
+      c.n++;
+      if (!c.img && it.image_url) c.img = it.image_url;
+    });
+    var tiles = PUB.groups.filter(function (g) { return by[g.id] && !g.hidden; }).map(function (g) {
+      var c = by[g.id];
+      var u = c.img ? (typeof _gridThumbUrl === "function" ? _gridThumbUrl(c.img) : c.img) : "";
+      return '<button class="cat-tile" onclick="setGroupFilter(\'' + esc(g.id) + '\');window.scrollTo({top:0,behavior:\'smooth\'})">' +
+        '<span class="cat-img">' + (u ? '<img src="' + esc(u) + '" loading="lazy" alt="">' : "📦") + "</span>" +
+        '<span class="cat-name">' + esc(g.name) + '</span><span class="cat-count">' + c.n + " صنف</span></button>";
+    });
+    if (tiles.length < 2) return "";
+    return '<section class="cat-strip"><div class="cat-row">' + tiles.join("") + "</div></section>";
+  }
   function slide(cls, title, text, cta, act) {
     return '<div class="home-banner hero-act hero-slide-' + cls + '" onclick="' + act + '"><div class="home-banner-text"><h2>' +
       esc(title) + "</h2><p>" + esc(text) + '</p><span class="home-banner-cta">' + esc(cta) + "</span></div></div>";
@@ -84,8 +105,8 @@
 
   /* ───────── 2) أسهم الأقسام الأفقية ───────── */
   function initStrips() {
-    document.querySelectorAll(".top-strip").forEach(function (sec) {
-      var row = sec.querySelector(".top-strip-row");
+    document.querySelectorAll(".top-strip, .cat-strip").forEach(function (sec) {
+      var row = sec.querySelector(".top-strip-row, .cat-row");
       if (!row || sec.dataset.arrows) return;
       sec.dataset.arrows = "1";
       var prev = mk("prev", "›", "السابق"), next = mk("next", "‹", "التالي");
@@ -99,7 +120,21 @@
       }
       row.addEventListener("scroll", function () { requestAnimationFrame(upd); }, { passive: true });
       upd(); setTimeout(upd, 400); // الصور بتتحمل متأخر
+      if (row.classList.contains("cat-row")) dragScroll(row);
     });
+  }
+  /* سحب بالماوس على الديسكتوب (على اللمس بيشتغل طبيعي) */
+  function dragScroll(el) {
+    var down = false, sx = 0, sl = 0, moved = false;
+    el.addEventListener("mousedown", function (e) { down = true; moved = false; sx = e.pageX; sl = el.scrollLeft; });
+    window.addEventListener("mouseup", function () { down = false; el.classList.remove("dragging"); });
+    el.addEventListener("mousemove", function (e) {
+      if (!down) return;
+      var dx = e.pageX - sx;
+      if (Math.abs(dx) > 5) { moved = true; el.classList.add("dragging"); }
+      if (moved) el.scrollLeft = sl - dx;
+    });
+    el.addEventListener("click", function (e) { if (moved) { e.preventDefault(); e.stopPropagation(); moved = false; } }, true);
   }
   function mk(cls, ch, label) {
     var b = document.createElement("button");
@@ -190,6 +225,6 @@
     if (wrap) new MutationObserver(enhance).observe(wrap, { childList: true });
     enhance();
   }
-  window.Interactive = { buildHero: buildHero };
+  window.Interactive = { buildHero: buildHero, buildCategories: buildCategories };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
 })();

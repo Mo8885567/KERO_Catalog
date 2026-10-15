@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <!-- بيبدأ اتصال DNS/TLS مع سيرفرات صور جوجل درايف بدري (من قبل ما
          بيانات الكتالوج توصل أصلاً) عشان الصور تبدأ تنزل أسرع لما تظهر -->
     <link rel="preconnect" href="https://lh3.googleusercontent.com" />
@@ -3631,7 +3631,7 @@
             id="mobile-filter-btn"
           >
             <i class="ti ti-adjustments-horizontal" style="font-size: 15px"></i>
-            <span id="mobile-filter-label">فلتر</span>
+            <span id="mobile-filter-label">فلتر</span><span class="filter-count" id="mobile-filter-count"></span>
           </button>
           <div class="view-toggle">
             <button
@@ -3684,7 +3684,12 @@
     <!-- ===== LAYOUT ===== -->
     <div class="layout">
       <!-- ===== SIDEBAR ===== -->
-      <aside class="sidebar" id="sidebar">
+      <aside class="sidebar" id="sidebar" aria-label="الفلاتر">
+        <!-- رأس الدرج (بيظهر على الموبايل فقط) -->
+        <div class="drawer-head">
+          <span><i class="ti ti-adjustments-horizontal" style="margin-left:6px;vertical-align:-2px"></i>الفلاتر</span>
+          <button type="button" class="drawer-close" onclick="toggleMobileSidebar(true)" aria-label="إغلاق">✕</button>
+        </div>
         <!-- Stats card -->
         <div class="stats-card">
           <div class="stats-card-title">
@@ -3768,6 +3773,12 @@
         <div class="sidebar-section" id="groups-sidebar-section">
           <div class="sidebar-title">المجموعات</div>
           <div class="sidebar-items" id="group-items"></div>
+        </div>
+
+        <!-- تذييل الدرج (بيظهر على الموبايل فقط) -->
+        <div class="drawer-foot">
+          <button type="button" class="drawer-reset" onclick="MobileShell.resetFilters()">مسح</button>
+          <button type="button" class="drawer-apply" id="drawer-apply" onclick="toggleMobileSidebar(true)">عرض النتائج</button>
         </div>
       </aside>
 
@@ -4664,9 +4675,10 @@
         } else {
           wrap.innerHTML =
             _buildFavBar() +
-            _buildBanner() +
+            (window.Interactive ? Interactive.buildHero() : _buildBanner()) +
             _buildTopStrip() +
             _buildDealsStrip() +
+            _buildNewStrip() +
             _buildGrid(items) +
             _buildRecentStrip();
         }
@@ -4831,6 +4843,20 @@
         });
         if (list.length < 3 && !_hasPinned) return "";
         return _buildStrip("عروض اليوم", "ti-discount-2", list, "deals", "discount");
+      }
+      /* وصل حديثًا: أصناف اتضافت آخر ١٤ يوم */
+      function _buildNewStrip() {
+        if (!_stripsAllowed()) return "";
+        var list = PUB.items
+          .filter(function (x) {
+            return x._isNew && _stockStatus(x) !== "out";
+          })
+          .slice(0, 10);
+        if (list.length < 3) return "";
+        return _buildStrip("وصل حديثًا", "ti-sparkles", list, "new", "").replace(
+          '<section class="top-strip">',
+          '<section class="top-strip" id="new-strip">',
+        );
       }
       /* شاهدته مؤخرًا (محفوظ في المتصفح بس) */
       function _recentGet() {
@@ -7075,6 +7101,8 @@
     </script>
     
       <script src="/assets/js/custom-select.js"></script>
+      <script src="/assets/js/mobile-shell.js"></script>
+      <script src="/assets/js/interactive.js"></script>
       <script src="/assets/js/sw-register.js"></script>
   </body>
 </html>

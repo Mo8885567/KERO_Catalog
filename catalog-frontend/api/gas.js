@@ -51,6 +51,7 @@ const ALLOWED_FNS = new Set([
   'adminGetSettings', 'adminSaveSettings', 'adminChangePassword',
   'adminListLinks', 'adminCreateLink', 'adminSetLinkActive', 'adminDeleteLink',
   'adminLogout', 'adminBulkUpdate', 'adminReorderGroups', 'adminUploadImage', 'adminGetOrders',
+  'pushSubscribe', 'pushUnsubscribe', 'adminPushStats',
   'ping',
 ]);
 
@@ -60,6 +61,7 @@ const ALLOWED_FNS = new Set([
 const READ_FNS = new Set([
   'getCatalogPublicData', 'resolveLinkedCatalog', 'resolveLinkedCatalogFull', 'ping',
   'adminLogin', 'adminGetData', 'adminGetSettings', 'adminGetOrders', 'adminListLinks',
+  'adminPushStats',
 ]);
 
 const FRESH_TTL_SEC = 120;   // ثانية — مدة الرد "الطازج" على الـ CDN

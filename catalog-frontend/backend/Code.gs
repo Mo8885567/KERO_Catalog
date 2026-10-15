@@ -23,6 +23,8 @@
  *  5) Orders  (سجل الطلبات المنظّم — بيتعمل أوتوماتيك أول طلب)
  *     timestamp | source_type | source_id | customer_name | items_json | total | message
  *
+ *  6) PushSubs / PushLog  (اشتراكات الإشعارات وسجل الإرسال — بيتعملوا أوتوماتيك)
+ *
  *  أعمدة اختيارية بتتضاف أوتوماتيك أول حفظ من الأدمن:
  *   Items:  old_price, tiers, created_at, deal_price, deal_start, deal_end, featured, images_json
  *   Groups: sort_order, hidden
@@ -93,6 +95,7 @@ var _ALLOWED_REMOTE_FNS = [
   'adminGetSettings', 'adminSaveSettings', 'adminChangePassword',
   'adminListLinks', 'adminCreateLink', 'adminSetLinkActive', 'adminDeleteLink',
   'adminLogout', 'adminBulkUpdate', 'adminReorderGroups', 'adminUploadImage', 'adminGetOrders',
+  'pushSubscribe', 'pushUnsubscribe', 'adminPushStats', 'adminPushGetSubs', 'adminPushRecord',
   'ping',
 ];
 
@@ -104,7 +107,7 @@ var _WRITE_FNS = [
   'adminSaveItem', 'adminDeleteItem', 'adminSaveGroup', 'adminDeleteGroup',
   'adminSaveSettings', 'adminChangePassword', 'adminBulkUpdate', 'adminReorderGroups',
   'adminUploadImage', 'adminCreateLink', 'adminSetLinkActive', 'adminDeleteLink',
-  'logPublicCatalogWhatsapp',
+  'logPublicCatalogWhatsapp', 'pushSubscribe', 'pushUnsubscribe', 'adminPushRecord',
 ];
 // بترجّع JSON النتيجة المحفوظة لو الطلب اتنفّذ قبل كده، أو null لو لازم ننفّذه
 function _ridBegin(rid) {
@@ -1572,6 +1575,191 @@ function adminDeleteLink(password, id) {
         }
       }
       throw new Error('الرابط مش موجود');
+    } finally {
+      lock.releaseLock();
+    }
+  } catch (err) {
+    return { success: false, message: err.message };
+  }
+}
+
+// ============================================================
+//  إشعارات الموبايل (Web Push)
+//  - الاشتراكات بتتخزن هنا في تاب PushSubs (بيتعمل أوتوماتيك).
+//  - الإرسال الفعلي بيتم من Vercel (api/push.js) لأن Apps Script مبيقدرش
+//    يوقّع VAPID ولا يشفّر الرسالة. السيرفر ده بيسأل الدالتين
+//    adminPushGetSubs و adminPushRecord بتوكن الأدمن.
+// ============================================================
+var SHEET_PUSH = 'PushSubs';
+var SHEET_PUSH_LOG = 'PushLog';
+var PUSH_HEADERS = ['id', 'endpoint', 'p256dh', 'auth', 'ua', 'created_at', 'last_seen'];
+var PUSH_LOG_HEADERS = ['timestamp', 'title', 'body', 'url', 'sent', 'failed', 'removed'];
+
+function _ensureSheetWithHeaders(name, headers) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName(name);
+  if (sh) return sh;
+  // بتتنادى دايمًا من جوه LockService.getScriptLock() فمفيش سباق على الإنشاء
+  sh = ss.insertSheet(name);
+  sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+  sh.setFrozenRows(1);
+  return sh;
+}
+
+function _pushId(endpoint) {
+  var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, String(endpoint), Utilities.Charset.UTF_8);
+  return bytes.map(function (b) {
+    var v = (b < 0 ? b + 256 : b).toString(16);
+    return v.length === 1 ? '0' + v : v;
+  }).join('');
+}
+
+// عام: العميل (من التطبيق المثبّت) بيسجّل اشتراكه
+function pushSubscribe(sub) {
+  try {
+    sub = sub || {};
+    var endpoint = String(sub.endpoint || '');
+    var keys = sub.keys || {};
+    var p256dh = String(keys.p256dh || '');
+    var auth = String(keys.auth || '');
+    if (endpoint.indexOf('https://') !== 0 || endpoint.length > 1000 || !p256dh || !auth || p256dh.length > 200 || auth.length > 100) {
+      return { success: false, message: 'اشتراك غير صالح' };
+    }
+    var id = _pushId(endpoint);
+    var now = new Date();
+    var lock = LockService.getScriptLock();
+    lock.waitLock(15000);
+    try {
+      var sh = _ensureSheetWithHeaders(SHEET_PUSH, PUSH_HEADERS);
+      var last = sh.getLastRow();
+      if (last >= 2) {
+        var ids = sh.getRange(2, 1, last - 1, 1).getValues();
+        for (var i = 0; i < ids.length; i++) {
+          if (String(ids[i][0]) === id) {
+            sh.getRange(i + 2, 7).setValue(now);   // last_seen
+            return { success: true, existed: true };
+          }
+        }
+      }
+      sh.appendRow([id, endpoint, p256dh, auth, String(sub.ua || '').slice(0, 200), now, now]);
+      return { success: true, existed: false };
+    } finally {
+      lock.releaseLock();
+    }
+  } catch (err) {
+    return { success: false, message: err.message };
+  }
+}
+
+// عام: العميل لغى الاشتراك
+function pushUnsubscribe(endpoint) {
+  try {
+    endpoint = String(endpoint || '');
+    if (!endpoint) return { success: true };
+    var id = _pushId(endpoint);
+    var lock = LockService.getScriptLock();
+    lock.waitLock(15000);
+    try {
+      _deletePushIds([id]);
+    } finally {
+      lock.releaseLock();
+    }
+    return { success: true };
+  } catch (err) {
+    return { success: false, message: err.message };
+  }
+}
+
+// لازم تتنادى جوه lock
+function _deletePushIds(idList) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName(SHEET_PUSH);
+  if (!sh || !idList.length) return 0;
+  var last = sh.getLastRow();
+  if (last < 2) return 0;
+  var set = {};
+  idList.forEach(function (x) { set[String(x)] = true; });
+  var ids = sh.getRange(2, 1, last - 1, 1).getValues();
+  var removed = 0;
+  for (var i = ids.length - 1; i >= 0; i--) {   // من تحت لفوق عشان الترقيم ميتلخبطش
+    if (set[String(ids[i][0])]) {
+      sh.deleteRow(i + 2);
+      removed++;
+    }
+  }
+  return removed;
+}
+
+// أدمن: عدد المشتركين + آخر ١٠ إشعارات اتبعتت
+function adminPushStats(password) {
+  try {
+    if (!_adminCheckPassword(password)) return { success: false, message: 'غير مصرح' };
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var shS = ss.getSheetByName(SHEET_PUSH);
+    var subscribers = shS ? Math.max(0, shS.getLastRow() - 1) : 0;
+    var log = [];
+    var shL = ss.getSheetByName(SHEET_PUSH_LOG);
+    if (shL && shL.getLastRow() >= 2) {
+      var n = Math.min(10, shL.getLastRow() - 1);
+      var rows = shL.getRange(shL.getLastRow() - n + 1, 1, n, PUSH_LOG_HEADERS.length).getValues();
+      log = rows.reverse().map(function (r) {
+        return {
+          timestamp: _isoOrEmpty(r[0]),
+          title: String(r[1] || ''),
+          body: String(r[2] || ''),
+          url: String(r[3] || ''),
+          sent: Number(r[4] || 0),
+          failed: Number(r[5] || 0),
+          removed: Number(r[6] || 0),
+        };
+      });
+    }
+    return { success: true, subscribers: subscribers, log: log };
+  } catch (err) {
+    return { success: false, message: err.message };
+  }
+}
+
+// أدمن (بينادي عليها api/push.js): كل الاشتراكات عشان يتبعتلهم
+function adminPushGetSubs(password) {
+  try {
+    if (!_adminCheckPassword(password)) return { success: false, message: 'غير مصرح' };
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sh = ss.getSheetByName(SHEET_PUSH);
+    if (!sh || sh.getLastRow() < 2) return { success: true, subs: [] };
+    var rows = sh.getRange(2, 1, sh.getLastRow() - 1, 4).getValues();
+    var subs = rows
+      .filter(function (r) { return r[1] && r[2] && r[3]; })
+      .map(function (r) {
+        return { id: String(r[0]), endpoint: String(r[1]), keys: { p256dh: String(r[2]), auth: String(r[3]) } };
+      });
+    return { success: true, subs: subs };
+  } catch (err) {
+    return { success: false, message: err.message };
+  }
+}
+
+// أدمن (بينادي عليها api/push.js بعد الإرسال): تسجيل النتيجة + مسح الاشتراكات الميتة
+function adminPushRecord(password, rec) {
+  try {
+    if (!_adminCheckPassword(password)) return { success: false, message: 'غير مصرح' };
+    rec = rec || {};
+    var dead = Array.isArray(rec.deadIds) ? rec.deadIds.slice(0, 5000) : [];
+    var lock = LockService.getScriptLock();
+    lock.waitLock(20000);
+    try {
+      var removed = _deletePushIds(dead);
+      var shL = _ensureSheetWithHeaders(SHEET_PUSH_LOG, PUSH_LOG_HEADERS);
+      shL.appendRow([
+        new Date(),
+        String(rec.title || '').slice(0, 200),
+        String(rec.body || '').slice(0, 500),
+        String(rec.url || '').slice(0, 300),
+        Number(rec.sent || 0),
+        Number(rec.failed || 0),
+        removed,
+      ]);
+      return { success: true, removed: removed };
     } finally {
       lock.releaseLock();
     }

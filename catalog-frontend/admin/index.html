@@ -1779,6 +1779,7 @@ html[data-theme="dark"] .toast.err {
           <button class="tab-btn" data-tab="items" onclick="switchTab('items')"><i class="ti ti-package"></i> الأصناف <span class="tab-count" id="tabItemsCount" hidden></span></button>
           <button class="tab-btn" data-tab="groups" onclick="switchTab('groups')"><i class="ti ti-layout-grid"></i> المجموعات</button>
           <button class="tab-btn" data-tab="orders" onclick="switchTab('orders')"><i class="ti ti-receipt"></i> الطلبات</button>
+          <button class="tab-btn" data-tab="push" onclick="switchTab('push')"><i class="ti ti-bell-ringing"></i> الإشعارات</button>
           <button class="tab-btn" data-tab="settings" onclick="switchTab('settings')"><i class="ti ti-building-store"></i> الإعدادات</button>
         </nav>
       </header>
@@ -1897,6 +1898,38 @@ html[data-theme="dark"] .toast.err {
           <div class="card-table">
             <div id="ordersList"></div>
             <div class="empty-state" id="ordersEmpty" hidden></div>
+          </div>
+        </section>
+
+        <!-- ===== الإشعارات ===== -->
+        <section id="tab-push" hidden>
+          <div class="page-head">
+            <div>
+              <h2>الإشعارات</h2>
+              <p>ابعت إشعار لكل العملاء اللي مثبّتين التطبيق وفعّلوا الإشعارات</p>
+            </div>
+            <button class="btn btn-sm" onclick="loadPush(true)"><i class="ti ti-refresh"></i> تحديث</button>
+          </div>
+          <div class="stat-grid" id="pushStats"></div>
+          <div class="settings-grid">
+            <div class="card card-pad settings-card">
+              <h3><i class="ti ti-send"></i> إشعار جديد</h3>
+              <p class="hint">الإشعار بيوصل فورًا لكل المشتركين ومينفعش يتسحب بعد الإرسال، فراجعه كويس</p>
+              <div class="form-grid" style="grid-template-columns: 1fr; margin-top: 12px">
+                <div class="form-field"><label for="p_title">العنوان <span class="sub">(لحد ٨٠ حرف)</span></label><input id="p_title" maxlength="80" placeholder="مثال: عروض نهاية الأسبوع 🔥" /></div>
+                <div class="form-field"><label for="p_body">النص <span class="sub">(لحد ٢٤٠ حرف)</span></label><textarea id="p_body" maxlength="240" rows="3" placeholder="مثال: خصم لحد ٣٠٪ على أصناف مختارة لحد الجمعة"></textarea></div>
+                <div class="form-field"><label for="p_url">الصفحة اللي تفتح عند الضغط <span class="sub">(اختياري)</span></label><input id="p_url" dir="ltr" placeholder="/   أو   /?item=كود-الصنف" /></div>
+                <div class="form-field"><label for="p_image">رابط صورة <span class="sub">(اختياري — https)</span></label><input id="p_image" dir="ltr" placeholder="https://..." /></div>
+              </div>
+              <div class="field-error" id="pushError"></div>
+              <div class="settings-actions">
+                <button class="btn btn-primary" id="pushSendBtn" onclick="sendPush()"><i class="ti ti-send"></i> إرسال للجميع</button>
+              </div>
+            </div>
+            <div class="card card-pad settings-card">
+              <h3><i class="ti ti-history"></i> آخر الإشعارات</h3>
+              <div id="pushLog"></div>
+            </div>
           </div>
         </section>
 
@@ -2262,7 +2295,7 @@ function fromLocalInput(v) {
 }
 
 // نداء موحّد للباكيند بصيغة Promise. لو التوكن انتهى → رجوع لشاشة الدخول.
-var READ_FNS = { adminGetData: 1, adminGetSettings: 1, adminGetOrders: 1, adminLogin: 1, getCatalogPublicData: 1 };
+var READ_FNS = { adminGetData: 1, adminGetSettings: 1, adminGetOrders: 1, adminPushStats: 1, adminLogin: 1, getCatalogPublicData: 1 };
 function api(fn) {
   var args = Array.prototype.slice.call(arguments, 1);
   var isWrite = !READ_FNS[fn];
@@ -2485,10 +2518,90 @@ function renderAll() {
   renderOrders();
 }
 
+// ===== الإشعارات =====
+var PUSH = null;
+function loadPush(force) {
+  if (PUSH && !force && Date.now() - (PUSH._at || 0) < 30000) return;
+  api("adminPushStats", PW).then(function (res) {
+    if (!res || !res.success) {
+      if (force) showToast((res && res.message) || "تعذّر تحميل الإشعارات", true);
+      return;
+    }
+    res._at = Date.now();
+    PUSH = res;
+    renderPush();
+  }).catch(function (err) {
+    if (force) showToast("خطأ: " + err.message, true);
+  });
+}
+function renderPush() {
+  if (!PUSH) return;
+  $("pushStats").innerHTML =
+    statTile("المشتركين", fmt(PUSH.subscribers), "جهاز فعّل الإشعارات") +
+    statTile("آخر إرسال", PUSH.log && PUSH.log[0] ? fmt(PUSH.log[0].sent) : "—", PUSH.log && PUSH.log[0] ? "وصل · " + (timeAgo(PUSH.log[0].timestamp) || fmtDateTime(PUSH.log[0].timestamp)) : "لسه ما بعتّش");
+  var log = PUSH.log || [];
+  $("pushLog").innerHTML = log.length
+    ? log.map(function (l) {
+        return '<div style="padding:10px 0;border-bottom:1px solid var(--border,#e3e6e6)"><b>' + esc(l.title) + '</b>' +
+          '<div style="font-size:13px;opacity:.8;margin-top:2px">' + esc(l.body) + '</div>' +
+          '<div style="font-size:12px;opacity:.65;margin-top:4px">' + esc(fmtDateTime(l.timestamp)) + ' · وصل ' + fmt(l.sent) +
+          (l.failed ? ' · فشل ' + fmt(l.failed) : '') + (l.removed ? ' · اتشال ' + fmt(l.removed) + ' اشتراك منتهي' : '') + '</div></div>';
+      }).join("")
+    : '<p class="hint" style="margin-top:12px">لسه ما بعتّش أي إشعار</p>';
+}
+var _pushSending = false;
+function sendPush() {
+  if (_pushSending) return;
+  var title = $("p_title").value.trim(), body = $("p_body").value.trim();
+  var url = $("p_url").value.trim(), image = $("p_image").value.trim();
+  var err = $("pushError");
+  err.textContent = "";
+  if (!title) { err.textContent = "اكتب عنوان الإشعار"; return; }
+  if (!body) { err.textContent = "اكتب نص الإشعار"; return; }
+  if (url && url.charAt(0) !== "/") { err.textContent = "الرابط لازم يبدأ بـ / (مثال: /?item=123)"; return; }
+  if (image && !/^https:\/\//i.test(image)) { err.textContent = "رابط الصورة لازم يبدأ بـ https://"; return; }
+  var n = PUSH ? PUSH.subscribers : 0;
+  if (!confirm("هيتبعت الإشعار لـ " + fmt(n) + " مشترك. تكمّل؟")) return;
+  var btn = $("pushSendBtn");
+  _pushSending = true;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader-2"></i> جاري الإرسال...';
+  fetch("/api/push", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token: PW, title: title, body: body, url: url || "/", image: image })
+  })
+    .then(function (r) {
+      return r.text().then(function (t) {
+        var j = null;
+        try { j = JSON.parse(t); } catch (e) {}
+        if (r.status === 404) throw new Error("خدمة الإشعارات مش متاحة — لازم الموقع يكون على Vercel");
+        if (r.status === 401) { forceLogin("الجلسة انتهت، سجّل دخولك تاني"); throw new Error("غير مصرح"); }
+        if (!j) throw new Error("رد غير متوقع من السيرفر");
+        if (j.error) throw new Error(j.error);
+        return j;
+      });
+    })
+    .then(function (j) {
+      showToast(j.total ? "اتبعت لـ " + fmt(j.sent) + " من " + fmt(j.total) + (j.failed ? " (فشل " + fmt(j.failed) + ")" : "") : "مفيش مشتركين لسه");
+      if (j.total) { $("p_title").value = ""; $("p_body").value = ""; $("p_url").value = ""; $("p_image").value = ""; }
+      loadPush(true);
+    })
+    .catch(function (e) {
+      err.textContent = e.message;
+      showToast(e.message, true);
+    })
+    .finally(function () {
+      _pushSending = false;
+      btn.disabled = false;
+      btn.innerHTML = '<i class="ti ti-send"></i> إرسال للجميع';
+    });
+}
+
 // ===== التابات =====
 function switchTab(t) {
   currentTab = t;
-  ["dashboard", "items", "groups", "orders", "settings"].forEach(function (n) {
+  ["dashboard", "items", "groups", "orders", "push", "settings"].forEach(function (n) {
     $("tab-" + n).hidden = n !== t;
   });
   document.querySelectorAll(".tab-btn").forEach(function (b) {
@@ -2496,6 +2609,7 @@ function switchTab(t) {
   });
   if (t === "settings") loadSettings();
   if (t === "orders") loadOrders(false);
+  if (t === "push") loadPush(false);
   if (t === "dashboard") loadOrders(false);
   window.scrollTo(0, 0);
 }

@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════
    Features — ميزات المواقع الكبيرة فوق الكتالوج:
-   1) شريط تنقّل سفلي للموبايل   2) مقارنة الأصناف   3) بحث صوتي
+   1) شريط تنقّل سفلي للموبايل   3) بحث صوتي
    4) تثبيت التطبيق (PWA)         5) زر الرجوع يقفل النوافذ بدل الخروج
    ملف مستقل — بيراقب الـ DOM ومابيغيّرش منطق الكتالوج.
    ═══════════════════════════════════════════════════════════════ */
@@ -36,7 +36,6 @@
     item: function () { ORIG.closeDrawer && ORIG.closeDrawer(); },
     cart: function () { ORIG.closeCartPanel && ORIG.closeCartPanel(); },
     filters: function () { ORIG.toggleMobileSidebar && ORIG.toggleMobileSidebar(true); syncNav(); },
-    compare: function () { closeCompare(true); },
   };
   function patch(fn, wrap) {
     if (typeof window[fn] !== "function") return;
@@ -109,119 +108,6 @@
   }
   function setBadge(id, v) { var e = $(id); if (e) { e.textContent = v; e.style.display = v ? "" : "none"; } }
 
-  /* ───────── 2) مقارنة الأصناف ───────── */
-  var MAX_CMP = 4, cmp = [], tray, modal;
-  try { cmp = JSON.parse(sessionStorage.getItem("cmp") || "[]"); } catch (e) { cmp = []; }
-  function saveCmp() { try { sessionStorage.setItem("cmp", JSON.stringify(cmp)); } catch (e) {} }
-  function injectCmpButtons() {
-    document.querySelectorAll(".card[data-code]").forEach(function (c) {
-      var wrap = c.querySelector(".card-img-wrap");
-      if (!wrap || wrap.querySelector(".cmp-btn")) return;
-      var b = document.createElement("button");
-      b.type = "button"; b.className = "cmp-btn"; b.dataset.code = c.dataset.code;
-      b.innerHTML = '<i class="ti ti-arrows-left-right"></i><span>قارن</span>';
-      b.setAttribute("aria-label", "أضف للمقارنة");
-      wrap.appendChild(b);
-      mark(b);
-    });
-  }
-  function mark(b) {
-    var on = cmp.indexOf(b.dataset.code) !== -1;
-    b.classList.toggle("on", on);
-    b.querySelector("span").textContent = on ? "في المقارنة" : "قارن";
-  }
-  function toggleCmp(code) {
-    var i = cmp.indexOf(code);
-    if (i !== -1) cmp.splice(i, 1);
-    else {
-      if (cmp.length >= MAX_CMP) { toast("أقصى عدد للمقارنة " + MAX_CMP + " أصناف"); return; }
-      cmp.push(code);
-    }
-    saveCmp(); refreshCmp();
-  }
-  function refreshCmp() {
-    document.querySelectorAll(".cmp-btn").forEach(mark);
-    cmp = cmp.filter(function (c) { return item(c); });
-    if (!tray) buildTray();
-    tray.classList.toggle("show", cmp.length > 0);
-    document.body.classList.toggle("has-cmp", cmp.length > 0);
-    var th = cmp.map(function (c) {
-      var it = item(c), u = it.image_url && typeof _gridThumbUrl === "function" ? _gridThumbUrl(it.image_url) : "";
-      return '<span class="cmp-chip" data-rm="' + esc(c) + '" title="' + esc(it.name) + ' — اضغط للإزالة">' + (u ? '<img src="' + esc(u) + '" alt="">' : "📦") + "<i>✕</i></span>";
-    }).join("");
-    tray.querySelector(".cmp-chips").innerHTML = th;
-    var go = tray.querySelector(".cmp-go");
-    go.textContent = "قارن (" + cmp.length + ")"; go.disabled = cmp.length < 2;
-    tray.querySelector(".cmp-hint").textContent = cmp.length < 2 ? "اختار صنفين على الأقل" : "";
-  }
-  function buildTray() {
-    tray = document.createElement("div");
-    tray.className = "cmp-tray";
-    tray.innerHTML = '<div class="cmp-chips"></div><span class="cmp-hint"></span><button type="button" class="cmp-go">قارن</button><button type="button" class="cmp-clear" aria-label="مسح">مسح</button>';
-    document.body.appendChild(tray);
-    tray.addEventListener("click", function (e) {
-      var rm = e.target.closest("[data-rm]");
-      if (rm) { toggleCmp(rm.dataset.rm); return; }
-      if (e.target.closest(".cmp-clear")) { cmp = []; saveCmp(); refreshCmp(); }
-      else if (e.target.closest(".cmp-go") && cmp.length >= 2) openCompare();
-    });
-  }
-  function openCompare() {
-    var items = cmp.map(item).filter(Boolean);
-    var rows = [];
-    function row(label, fn) {
-      var vals = items.map(fn);
-      if (vals.every(function (v) { return v === "" || v == null; })) return;
-      rows.push({ label: label, vals: vals });
-    }
-    var prices = items.map(function (it) { var pi = _priceInfo(it); return pi.has ? pi.price : Infinity; });
-    var best = Math.min.apply(null, prices);
-    var stLbl = { available: "متاح", low: "كميات محدودة", out: "نفذ" };
-    row("المجموعة", function (it) { return esc(_groupName(it.group)); });
-    row("السعر", function (it) {
-      var pi = _priceInfo(it); if (!pi.has) return "";
-      return '<b class="' + (pi.price === best && items.length > 1 ? "cmp-best" : "") + '">' + money(pi.price) + "</b>" +
-        (pi.pct ? '<br><s class="cmp-old">' + money(pi.old) + '</s> <span class="cmp-off">-' + pi.pct + "%</span>" : "") +
-        (pi.price === best && items.length > 1 ? '<br><small class="cmp-tag">الأقل سعرًا</small>' : "");
-    });
-    row("الحالة", function (it) { return PUB.urlNoqty ? "" : stLbl[_stockStatus(it)]; });
-    row("الألوان", function (it) { var c = _parseColors(it.colors_json); return c.length ? esc(c.map(function (x) { return x.name; }).join("، ")) : ""; });
-    row("المقاسات", function (it) { return esc(it.sizes || ""); });
-    row("أقل كمية للطلب", function (it) { return Number(it.min_order_qty) > 1 ? esc(it.min_order_qty) : ""; });
-    row("الوحدة", function (it) { return esc(it.unit || ""); });
-    row("الوصف", function (it) { return esc(it.description || ""); });
-    var head = items.map(function (it) {
-      var u = it.image_url && typeof _gridThumbUrl === "function" ? _gridThumbUrl(it.image_url) : "";
-      return '<th><div class="cmp-col"><button class="cmp-x" data-rm="' + esc(it.code) + '" aria-label="إزالة">✕</button><div class="cmp-img">' + (u ? '<img src="' + esc(u) + '" alt="">' : "📦") +
-        '</div><div class="cmp-name">' + esc(it.name) + '</div><button class="cmp-open" data-open="' + esc(it.code) + '">اطلب / التفاصيل</button></div></th>';
-    }).join("");
-    var body = rows.map(function (r) { return "<tr><td>" + r.label + "</td>" + r.vals.map(function (v) { return "<td>" + v + "</td>"; }).join("") + "</tr>"; }).join("");
-    if (!modal) {
-      modal = document.createElement("div"); modal.className = "cmp-modal";
-      modal.addEventListener("click", function (e) {
-        if (e.target === modal || e.target.closest(".cmp-close")) { closeCompare(); return; }
-        var rm = e.target.closest("[data-rm]");
-        if (rm) { toggleCmp(rm.dataset.rm); if (cmp.length < 2) closeCompare(); else openCompare(); return; }
-        var op = e.target.closest("[data-open]");
-        if (op) { var c = op.dataset.open; closeCompare(); setTimeout(function () { openDrawer(c); }, 60); }
-      });
-      document.body.appendChild(modal);
-    }
-    modal.innerHTML = '<div class="cmp-box" role="dialog" aria-label="مقارنة الأصناف"><div class="cmp-head"><h3>مقارنة الأصناف</h3><button class="cmp-close" aria-label="إغلاق">✕</button></div>' +
-      '<div class="cmp-scroll"><table class="cmp-table" style="min-width:' + (96 + items.length * 150) + 'px"><thead><tr><th></th>' + head + "</tr></thead><tbody>" + body + "</tbody></table></div></div>";
-    modal.classList.add("open"); document.body.style.overflow = "hidden";
-    pushOv("compare");
-  }
-  function closeCompare(fromPop) {
-    if (!modal) return;
-    modal.classList.remove("open"); document.body.style.overflow = "";
-    if (!fromPop) releaseOv("compare");
-  }
-  document.addEventListener("click", function (e) {
-    var b = e.target.closest(".cmp-btn"); if (!b) return;
-    e.stopPropagation(); e.preventDefault(); toggleCmp(b.dataset.code);
-  }, true);
-
   /* ───────── 3) بحث صوتي ───────── */
   function initVoice() {
     var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -270,10 +156,10 @@
   }
 
   function init() {
-    initHistory(); buildNav(); initVoice(); initInstall(); refreshCmp();
+    initHistory(); buildNav(); initVoice(); initInstall();
     var wrap = $("pub-items-wrap");
-    if (wrap) new MutationObserver(function () { injectCmpButtons(); refreshCmp(); syncNav(); }).observe(wrap, { childList: true });
-    injectCmpButtons();
+    if (wrap) new MutationObserver(function () { syncNav(); }).observe(wrap, { childList: true });
+    try { sessionStorage.removeItem("cmp"); } catch (e) {}
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
 })();

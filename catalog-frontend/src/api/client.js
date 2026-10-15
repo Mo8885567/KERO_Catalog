@@ -44,6 +44,7 @@
   var READ_FNS = {
     getCatalogPublicData: true, resolveLinkedCatalog: true, resolveLinkedCatalogFull: true, ping: true,
     adminLogin: true, adminGetData: true, adminGetSettings: true, adminGetOrders: true, adminListLinks: true,
+    adminPushStats: true,
   };
   function _newRid(fnName) {
     return fnName + '-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
@@ -255,6 +256,7 @@
       'adminSaveGroup', 'adminDeleteGroup',
       'adminGetSettings', 'adminSaveSettings', 'adminChangePassword',
       'adminLogout', 'adminBulkUpdate', 'adminReorderGroups', 'adminUploadImage', 'adminGetOrders',
+      'pushSubscribe', 'pushUnsubscribe', 'adminPushStats',
       'ping',
     ];
 

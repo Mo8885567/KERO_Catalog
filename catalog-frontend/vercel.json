@@ -119,6 +119,9 @@
   "functions": {
     "api/gas.js": {
       "maxDuration": 60
+    },
+    "api/push.js": {
+      "maxDuration": 60
     }
   }
 }

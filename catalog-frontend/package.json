@@ -1,0 +1,9 @@
+{
+  "name": "catalog-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Static catalog frontend + Vercel serverless functions",
+  "dependencies": {
+    "web-push": "^3.6.7"
+  }
+}

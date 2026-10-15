@@ -1018,3 +1018,47 @@ body:has(.mobile-cart-bar.has-items) .back-top { bottom: 84px; }
   .header-actions .fav-header-btn,
   .header-actions .cart-btn { display: none !important; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   موبايل: الشاشات المنبثقة (الفلاتر · تفاصيل الصنف · السلة · نافذة الطلب)
+   بتتحصر بين أسفل الهيدر وأعلى الشريط السفلي — مش بحجم الشاشة كلها.
+   أعلى حد = أسفل الهيدر الحالي (بيراعي إنه ممكن يتصغّر مع النزول).
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  :root {
+    --popup-top: calc(var(--header-h, 108px) + var(--header-stick, 0px));
+    --popup-bottom: calc(59px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* الدرج الجانبي للفلاتر */
+  .sidebar,
+  .sidebar.mobile-open {
+    top: var(--popup-top) !important;
+    bottom: var(--popup-bottom) !important;
+    height: auto !important;
+    border-radius: 18px !important;
+    margin-inline: 6px;
+  }
+  .sidebar .drawer-head { padding-top: 14px; border-radius: 18px 18px 0 0; }
+  .sidebar .drawer-foot { padding-bottom: 12px; }
+
+  /* تفاصيل الصنف + السلة */
+  .drawer,
+  .cart-panel {
+    top: var(--popup-top) !important;
+    bottom: var(--popup-bottom) !important;
+    height: auto !important;
+    max-width: 100% !important;
+  }
+
+  /* الخلفيات المعتمة: بين الشريطين بس، فالهيدر والشريط السفلي يفضلوا واضحين */
+  #sidebar-overlay,
+  .drawer-backdrop,
+  .cart-panel-overlay,
+  .modal-backdrop {
+    top: var(--popup-top) !important;
+    bottom: var(--popup-bottom) !important;
+    height: auto !important;
+  }
+  .modal { max-height: 100% !important; }
+}

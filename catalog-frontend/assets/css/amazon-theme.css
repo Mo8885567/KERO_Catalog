@@ -1321,3 +1321,21 @@ body:has(.mobile-cart-bar.has-items) .back-top { bottom: 84px; }
 }
 .promo-bar { background: linear-gradient(135deg, #131921, #1e2a3a); border: 1px solid rgba(255,216,20,.25); }
 .promo-bar b { font-size: 14px; }
+
+/* ── منع الزوم: القرص ودبل-تاب متقفلين، السكرول العادي شغال ── */
+html, body { touch-action: pan-x pan-y; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+/* iOS بيعمل زوم أوتوماتيك لما تضغط على خانة خطها أصغر من 16px */
+@media (pointer: coarse) {
+  input, select, textarea { font-size: 16px !important; }
+}
+
+/* ── منع نسخ النصوص (no-copy.js) — خانات الكتابة مستثناة (لازم تفضل text عشان iOS يسمح بالكتابة) ── */
+html, body {
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+input, textarea, [contenteditable="true"], .allow-select {
+  -webkit-user-select: text; user-select: text;
+}
+img, a { -webkit-user-drag: none; user-drag: none; -webkit-touch-callout: none; }

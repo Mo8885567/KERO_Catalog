@@ -3,7 +3,7 @@
 // بس لو النت واقع. الخطوط والصور والأيقونات (ملفات ثابتة) بتتخزن للسرعة.
 // ملحوظة: غيّر CACHE_VERSION مع كل نشر لو عايز تمسح الكاش القديم بالكامل.
 
-const CACHE_VERSION = "keroman-v12";
+const CACHE_VERSION = "keroman-v14";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const STATE_CACHE = "keroman-state"; // بيفضل بين النسخ (آخر إشعار عروض اتبعت)
 

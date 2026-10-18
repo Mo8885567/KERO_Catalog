@@ -1915,6 +1915,15 @@ html[data-theme="dark"] .toast.err {
             <div class="card card-pad settings-card">
               <h3><i class="ti ti-send"></i> إشعار جديد</h3>
               <p class="hint">الإشعار بيوصل فورًا لكل المشتركين ومينفعش يتسحب بعد الإرسال، فراجعه كويس</p>
+              <div class="form-field" style="margin-top: 12px">
+                <label>رسائل جاهزة <span class="sub">(بتتملى من بيانات الخصومات الحالية وتقدر تعدّلها قبل الإرسال)</span></label>
+                <div style="display:flex;flex-wrap:wrap;gap:8px">
+                  <button type="button" class="btn btn-sm" onclick="pushTemplate('offers')">🔥 عروض وخصومات</button>
+                  <button type="button" class="btn btn-sm" onclick="pushTemplate('ending')">⏰ العرض بينتهي قريب</button>
+                  <button type="button" class="btn btn-sm" onclick="pushTemplate('new')">🆕 وصل حديثًا</button>
+                  <button type="button" class="btn btn-sm" onclick="pushTemplate('back')">👋 ارجع شوف الجديد</button>
+                </div>
+              </div>
               <div class="form-grid" style="grid-template-columns: 1fr; margin-top: 12px">
                 <div class="form-field"><label for="p_title">العنوان <span class="sub">(لحد ٨٠ حرف)</span></label><input id="p_title" maxlength="80" placeholder="مثال: عروض نهاية الأسبوع 🔥" /></div>
                 <div class="form-field"><label for="p_body">النص <span class="sub">(لحد ٢٤٠ حرف)</span></label><textarea id="p_body" maxlength="240" rows="3" placeholder="مثال: خصم لحد ٣٠٪ على أصناف مختارة لحد الجمعة"></textarea></div>
@@ -2550,6 +2559,36 @@ function renderPush() {
     : '<p class="hint" style="margin-top:12px">لسه ما بعتّش أي إشعار</p>';
 }
 var _pushSending = false;
+function pushTemplate(kind) {
+  var now = Date.now(), n = 0, max = 0, img = "";
+  (ITEMS || []).forEach(function (it) {
+    var act = it.active;
+    if (act === false || act === 0 || String(act).toLowerCase() === "false" || String(act) === "0") return;
+    var price = Number(it.selling_price || 0), old = Number(it.old_price || 0), dp = Number(it.deal_price || 0);
+    if (dp > 0 && dp < price) {
+      var st = it.deal_start ? Date.parse(it.deal_start) : NaN, en = it.deal_end ? Date.parse(it.deal_end) : NaN;
+      if (!((!isNaN(st) && now < st) || (!isNaN(en) && now >= en))) { old = Math.max(old, price); price = dp; }
+    }
+    if (price > 0 && old > price) {
+      n++;
+      var pct = Math.round(((old - price) / old) * 100);
+      if (pct > max) { max = pct; img = /^https:\/\/lh3\.googleusercontent\.com\//i.test(it.image_url || "") ? it.image_url : ""; }
+    }
+  });
+  var up = max ? " لحد " + max + "٪" : "";
+  var T = {
+    offers: { t: "🔥 عروض وخصومات على كيرو مان", b: (n ? n + " صنف عليهم خصم" + up : "خصومات جديدة على أصناف مختارة") + " — ادخل شوف العروض قبل ما تخلص", u: "/?offers=1" },
+    ending: { t: "⏰ العرض بينتهي قريب", b: "الحق خصوماتك قبل ما تخلص" + (n ? " — " + n + " صنف عليهم خصم" + up : "") + ". ادخل دلوقتي!", u: "/?offers=1" },
+    "new": { t: "🆕 وصل حديثًا", b: "أصناف جديدة اتضافت للكتالوج — كن أول من يشوفها", u: "/" },
+    back: { t: "👋 وحشتنا!", b: "فيه خصومات كتير مستنياك" + (max ? " لحد " + max + "٪" : "") + " — ادخل شوف العروض", u: "/?offers=1" }
+  }[kind];
+  if (!T) return;
+  $("p_title").value = T.t;
+  $("p_body").value = T.b;
+  $("p_url").value = T.u;
+  $("p_image").value = (kind === "offers" || kind === "ending") ? img : "";
+  $("pushError").textContent = "";
+}
 function sendPush() {
   if (_pushSending) return;
   var title = $("p_title").value.trim(), body = $("p_body").value.trim();

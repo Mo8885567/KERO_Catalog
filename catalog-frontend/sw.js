@@ -3,8 +3,9 @@
 // بس لو النت واقع. الخطوط والصور والأيقونات (ملفات ثابتة) بتتخزن للسرعة.
 // ملحوظة: غيّر CACHE_VERSION مع كل نشر لو عايز تمسح الكاش القديم بالكامل.
 
-const CACHE_VERSION = "keroman-v10";
+const CACHE_VERSION = "keroman-v12";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
+const STATE_CACHE = "keroman-state"; // بيفضل بين النسخ (آخر إشعار عروض اتبعت)
 
 const PRECACHE_URLS = [
   "/manifest.json",
@@ -27,7 +28,7 @@ self.addEventListener("activate", (event) => {
     caches
       .keys()
       .then((keys) =>
-        Promise.all(keys.filter((key) => key !== STATIC_CACHE).map((key) => caches.delete(key)))
+        Promise.all(keys.filter((key) => key !== STATIC_CACHE && key !== STATE_CACHE).map((key) => caches.delete(key)))
       )
       .then(() => self.clients.claim())
   );
@@ -104,6 +105,91 @@ self.addEventListener("push", (event) => {
   if (data.image) options.image = data.image;
   if (data.tag) options.tag = data.tag;
   event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// ───────────────────── إشعار العروض التلقائي (Periodic Background Sync) ─────────────────────
+// Chrome على أندرويد بيصحّي الـ SW كل فترة للتطبيقات المثبّتة (المتصفح هو اللي بيحدد التوقيت، مش مضمون بالدقيقة).
+// بنجيب بيانات الكتالوج، ولو فيه خصومات جديدة ومفيش إشعار عروض اتبعت في آخر ٢٠ ساعة → نعرض إشعار.
+// على iPhone ومتصفحات من غير Periodic Sync: الإشعار الفوري بيجي من تاب "الإشعارات" في الأدمن (Web Push).
+const OFFERS_TAG = "offers-check";
+const OFFERS_GAP_MS = 20 * 60 * 60 * 1000;
+const OFFERS_STATE_URL = "/__offers_state.json";
+
+function offersFrom(items) {
+  const now = Date.now();
+  let count = 0, max = 0, image = "";
+  const codes = [];
+  (items || []).forEach((it) => {
+    if (!(Number(it.pub_qty || 0) > 0)) return;                      // مش متاح
+    let price = Number(it.selling_price || 0);
+    let old = Number(it.old_price || 0);
+    const dp = Number(it.deal_price || 0);
+    if (dp > 0 && dp < price) {                                       // عرض بتاريخ (نفس منطق الصفحة)
+      const st = it.deal_start ? Date.parse(it.deal_start) : NaN;
+      const en = it.deal_end ? Date.parse(it.deal_end) : NaN;
+      if (!((!isNaN(st) && now < st) || (!isNaN(en) && now >= en))) { old = Math.max(old, price); price = dp; }
+    }
+    if (!(price > 0) || !(old > price)) return;
+    const pct = Math.round(((old - price) / old) * 100);
+    count++;
+    codes.push(String(it.code || it.id || ""));
+    if (pct > max) { max = pct; image = /^https:\/\//i.test(it.image_url || "") ? it.image_url : ""; }
+  });
+  codes.sort();
+  return { count, max, image, sig: count + ":" + codes.slice(0, 40).join(",") };
+}
+
+async function readOffersState() {
+  try {
+    const c = await caches.open(STATE_CACHE);
+    const r = await c.match(OFFERS_STATE_URL);
+    return r ? await r.json() : {};
+  } catch (e) { return {}; }
+}
+async function writeOffersState(st) {
+  try {
+    const c = await caches.open(STATE_CACHE);
+    await c.put(OFFERS_STATE_URL, new Response(JSON.stringify(st), { headers: { "Content-Type": "application/json" } }));
+  } catch (e) {}
+}
+
+async function checkOffers() {
+  try {
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    // لو التطبيق مفتوح وقدام العميل، مفيش داعي لإشعار
+    const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    if (wins.some((w) => w.visibilityState === "visible")) return;
+
+    const state = await readOffersState();
+    if (Date.now() - (state.ts || 0) < OFFERS_GAP_MS) return;
+
+    const qs = "fn=getCatalogPublicData&args=" + encodeURIComponent(JSON.stringify(["", ""]));
+    const res = await fetch("/api/gas?" + qs, { cache: "no-store" });
+    if (!res.ok) return;
+    const json = await res.json();
+    const data = json && json.result;
+    if (!data || data.success === false) return;
+
+    const o = offersFrom(data.items);
+    if (!o.count || o.sig === state.sig) return;                      // مفيش عروض، أو نفس العروض اللي اتبعتت قبل كده
+
+    const options = {
+      body: o.count + " صنف عليهم خصم" + (o.max ? " لحد " + o.max + "٪" : "") + " — ادخل شوف العروض قبل ما تخلص",
+      icon: "/assets/logo/favicon-192.png",
+      badge: "/assets/logo/favicon-64.png",
+      dir: "rtl",
+      lang: "ar",
+      tag: "offers",
+      data: { url: "/?offers=1" },
+    };
+    if (o.image) options.image = o.image;
+    await self.registration.showNotification("🔥 عروض وخصومات على كيرو مان", options);
+    await writeOffersState({ ts: Date.now(), sig: o.sig });
+  } catch (e) {}
+}
+
+self.addEventListener("periodicsync", (event) => {
+  if (event.tag === OFFERS_TAG) event.waitUntil(checkOffers());
 });
 
 self.addEventListener("notificationclick", (event) => {

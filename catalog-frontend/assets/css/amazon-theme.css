@@ -1062,3 +1062,262 @@ body:has(.mobile-cart-bar.has-items) .back-top { bottom: 84px; }
   }
   .modal { max-height: 100% !important; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   media.js — سلايدر صور الكارت · لايت بوكس · مصغّرات التفاصيل · عدسة التكبير
+   ═══════════════════════════════════════════════════════════════ */
+
+/* طبقات صور الكارت الإضافية (بتتحط فوق الصورة الأساسية وتتبدّل بالـ fade) */
+.card-img-wrap .mx-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: var(--surface2);
+  opacity: 0;
+  transition: opacity 0.28s ease, transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+.card-img-wrap .mx-layer.on { opacity: 1; }
+.card:hover .card-img-wrap .mx-layer { transform: scale(1.08); }
+
+/* نقط الصور + عدّاد الصور */
+.mx-dots {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 5px;
+  z-index: 4;
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  pointer-events: none;
+}
+.mx-dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.32);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.55);
+  transition: width 0.22s ease, background 0.22s ease;
+}
+.mx-dots i.on { width: 14px; background: #fff; box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.22); }
+.mx-count {
+  position: absolute;
+  inset-inline-start: 8px;
+  bottom: 14px;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.62);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.5;
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+}
+.mx-count .ti { font-size: 11px; }
+@media (hover: hover) and (pointer: fine) {
+  .mx-dots { opacity: 0; transition: opacity 0.2s ease; }
+  .card:hover .mx-dots { opacity: 1; }
+  .card:hover .mx-count { opacity: 0; }
+  .mx-count { transition: opacity 0.2s ease; }
+}
+
+/* مصغّرات صور تفاصيل الصنف */
+.mx-thumbs {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: var(--surface);
+  -webkit-overflow-scrolling: touch;
+}
+.mx-thumbs::-webkit-scrollbar { display: none; }
+.mx-thumbs button {
+  flex: 0 0 auto;
+  width: 58px;
+  height: 58px;
+  padding: 0;
+  border: 2px solid var(--border, #e2e8f0);
+  border-radius: 10px;
+  background: var(--surface2);
+  overflow: hidden;
+  cursor: pointer;
+  opacity: 0.72;
+  transition: opacity 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+.mx-thumbs button:hover { opacity: 1; }
+.mx-thumbs button.on { opacity: 1; border-color: var(--primary, #1d4ed8); transform: translateY(-1px); }
+.mx-thumbs button img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* عدسة التكبير على الديسكتوب (الماوس فوق الصورة الكبيرة) */
+.modal-gallery-main.mx-zooming img.mgm-img.active {
+  transform: scale(2.1) !important;
+  transform-origin: var(--zx, 50%) var(--zy, 50%);
+  transition: opacity 0.5s ease, transform 0.12s ease-out !important;
+}
+.modal-gallery-main.mx-zooming .gallery-arrow,
+.modal-gallery-main.mx-zooming .gallery-dots,
+.modal-gallery-main.mx-zooming .gallery-counter,
+.modal-gallery-main.mx-zooming .modal-zoom-hint { opacity: 0; }
+
+/* اللايت بوكس الجديد */
+.mx-lb {
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  display: none;
+  flex-direction: column;
+  background: rgba(8, 12, 20, 0.96);
+  backdrop-filter: blur(10px);
+  color: #fff;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.mx-lb.open { display: flex; animation: mxLbIn 0.2s ease; }
+@keyframes mxLbIn { from { opacity: 0; } to { opacity: 1; } }
+.mx-lb-stage {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  touch-action: none;
+  cursor: zoom-in;
+}
+.mx-lb.zoomed .mx-lb-stage { cursor: grab; }
+.mx-lb-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  will-change: transform;
+  transform-origin: center center;
+  -webkit-user-drag: none;
+}
+.mx-lb-spin {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  margin: auto;
+  inset: 0;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: mxSpin 0.8s linear infinite;
+  display: none;
+  pointer-events: none;
+}
+@keyframes mxSpin { to { transform: rotate(360deg); } }
+.mx-lb-close {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  left: 14px;
+  z-index: 3;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 19px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.mx-lb-close:hover { background: rgba(220, 38, 38, 0.65); }
+.mx-lb-count {
+  position: absolute;
+  top: calc(20px + env(safe-area-inset-top, 0px));
+  inset-inline: 0;
+  z-index: 2;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  pointer-events: none;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+.mx-lb-nav {
+  position: absolute;
+  top: 50%;
+  z-index: 3;
+  width: 46px;
+  height: 46px;
+  margin-top: -23px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.mx-lb-nav:hover { background: rgba(255, 255, 255, 0.28); }
+.mx-lb-prev { right: 14px; }
+.mx-lb-next { left: 14px; }
+@media (pointer: coarse) { .mx-lb-nav { display: none !important; } }
+.mx-lb-thumbs {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: safe center;
+  gap: 8px;
+  padding: 10px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.mx-lb-thumbs::-webkit-scrollbar { display: none; }
+.mx-lb-thumbs button {
+  flex: 0 0 auto;
+  width: 54px;
+  height: 54px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.2s ease, border-color 0.2s ease;
+}
+.mx-lb-thumbs button.on { opacity: 1; border-color: #fff; }
+.mx-lb-thumbs button img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mx-lb-hint {
+  position: absolute;
+  inset-inline: 0;
+  bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+  margin-inline: auto;
+  width: max-content;
+  max-width: 90%;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+.mx-lb.hint .mx-lb-hint { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .card-img-wrap .mx-layer, .mx-dots i, .mx-lb.open { transition: none; animation: none; }
+}
+
+/* ── كارت العروض التلقائي للتطبيق المثبّت (promo.js) ── */
+.promo-bar .promo-ic {
+  flex: 0 0 auto; width: 42px; height: 42px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center; font-size: 22px;
+  background: linear-gradient(135deg, #ff6a00, #ee0979);
+}
+.promo-bar { background: linear-gradient(135deg, #131921, #1e2a3a); border: 1px solid rgba(255,216,20,.25); }
+.promo-bar b { font-size: 14px; }

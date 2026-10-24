@@ -72,6 +72,50 @@ const UPSTREAM_TIMEOUT_MS = 12000;
 // عمليات الكتابة (حفظ/رفع صور/تعديل جماعي) ممكن تاخد وقت أطول من القراءة
 const WRITE_TIMEOUT_MS = 50000;
 
+// ── تشخيص صفحات HTML اللي Google بترجّعها بدل JSON ───────────────
+// Apps Script بيرجّع HTML (مش JSON) في حالات مختلفة تمامًا، وكل حالة ليها
+// علاج مختلف — فبنصنّفها بدل رسالة عامة واحدة:
+//   RATE      → ضغط/حد طلبات متتالية  (مؤقت → نعيد المحاولة)
+//   TRANSIENT → صفحة خطأ مؤقتة من جوجل 5xx  (مؤقت → نعيد المحاولة)
+//   TIME      → تجاوز مهلة التنفيذ
+//   AUTH      → النشر مش "Anyone" (أو محتاج تسجيل دخول)  (دايم → مفيش فايدة من إعادة المحاولة)
+//   NOFN      → نسخة النشر قديمة / مفيش doPost  (دايم)
+//   UNKNOWN   → غير معروف (بنعرض مقتطف من الصفحة للتشخيص ونعيد المحاولة)
+function classifyHtml(text) {
+  const plain = String(text)
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const excerpt = plain.slice(0, 140);
+  if (/too many times|rate limit|quota|exceeded.*(limit|quota)|simultaneous/i.test(plain)) {
+    return { code: 'RATE', retry: true, msg: 'جوجل بتحدّ عدد الطلبات المتتالية دلوقتي — استنى ثواني وجرّب تاني' };
+  }
+  // إشارات قوية بس (كلمة "Sign in" لوحدها ممكن تظهر في صفحات أخطاء مؤقتة)
+  if (/ServiceLogin|Authorization required|You need access|needs permission/i.test(text)) {
+    return { code: 'AUTH', retry: false, msg: 'نشر Apps Script مش مفتوح للجميع — اضبط "Who has access" على Anyone وانشر New version' };
+  }
+  if (/Script function not found|doPost/i.test(plain)) {
+    return { code: 'NOFN', retry: false, msg: 'نسخة النشر القديمة من Apps Script مفيهاش آخر تعديل — اعمل Deploy → Manage deployments → Edit → New version' };
+  }
+  if (/maximum execution time|execution time/i.test(plain)) {
+    return { code: 'TIME', retry: false, msg: 'Apps Script تجاوز مهلة التنفيذ — راجع القائمة قبل ما تحاول تاني' };
+  }
+  if (/unable to open|server error|temporarily|unavailable|try again|something went wrong|\b50[0-4]\b|we're sorry/i.test(plain)) {
+    return { code: 'TRANSIENT', retry: true, msg: 'جوجل رجّعت صفحة خطأ مؤقتة — جرّب تاني بعد لحظات' };
+  }
+  return { code: 'UNKNOWN', retry: true, msg: 'ردّ غير متوقع من Apps Script' + (excerpt ? ' («' + excerpt + '»)' : '') };
+}
+
+function makeErr(message, code, retry) {
+  const e = new Error(message);
+  e.gasCode = code;
+  e.retryable = !!retry;
+  return e;
+}
+
 function callGAS(fn, args, rid, timeoutMs) {
   return new Promise((resolve, reject) => {
     const controller = new AbortController();
@@ -88,38 +132,77 @@ function callGAS(fn, args, rid, timeoutMs) {
         clearTimeout(timer);
         const text = await upstream.text();
         if (text && text.trimStart().startsWith('<')) {
-          throw new Error('استجابة HTML غير متوقعة من Apps Script — تأكد إن النشر مضبوط على "Anyone" وعامل New version بعد آخر تعديل');
+          const c = classifyHtml(text);
+          console.warn('[gas] HTML response', fn, 'http', upstream.status, c.code);
+          throw makeErr(c.msg, c.code, c.retry);
         }
         let data;
         try {
           data = JSON.parse(text);
         } catch (e) {
-          throw new Error('استجابة غير صالحة من Apps Script: ' + text.slice(0, 150));
+          throw makeErr('استجابة غير صالحة من Apps Script: ' + text.slice(0, 150), 'BADJSON', true);
         }
         if (data && typeof data === 'object' && 'error' in data) {
-          throw new Error(data.error);
+          // خطأ تطبيقي من الباكيند نفسه (مش مشكلة اتصال) → مفيش إعادة محاولة
+          throw makeErr(data.error, 'APP', false);
         }
         resolve(data && typeof data === 'object' && 'result' in data ? data.result : data);
       })
       .catch((err) => {
         clearTimeout(timer);
-        reject(err);
+        if (err && err.gasCode) return reject(err);
+        // فشل شبكة / مهلة (abort) من ناحية Vercel→Google
+        const aborted = err && err.name === 'AbortError';
+        reject(makeErr(
+          aborted ? 'Apps Script اتأخر في الرد' : 'تعذّر الاتصال بـ Apps Script',
+          aborted ? 'TIMEOUT' : 'NET',
+          true
+        ));
       });
   });
 }
 
-// محاولة واحدة إضافية عند أي فشل (شبكة/مهلة/HTML غير متوقع) — بيمتص جزء
-// كبير من عدم الانتظام (flakiness) اللي جوجل بيسببه من وقت للتاني
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// كتابات آمنة نعيد محاولتها: كلها بتحط قيم مطلقة (مش "زوّد/انقص") أو حذف،
+// ومعاها rid بيمنع الباكيند من تنفيذها مرتين (_ridBegin في Code.gs) —
+// يعني لو المحاولة الأولى نجحت فعلًا والرد ضاع، التانية بترجّع نفس النتيجة.
+// (adminCreateLink / adminUploadImage / adminChangePassword مش هنا عن قصد)
+const SAFE_RETRY_WRITES = new Set([
+  'adminSaveItem', 'adminDeleteItem', 'adminSaveGroup', 'adminDeleteGroup',
+  'adminSaveSettings', 'adminBulkUpdate', 'adminReorderGroups',
+  'adminSetLinkActive', 'adminDeleteLink', 'adminLogout', 'adminPushRecord',
+  'pushSubscribe', 'pushUnsubscribe', 'logPublicCatalogWhatsapp',
+]);
+
+const TOTAL_BUDGET_MS = 54000; // أقل من maxDuration (60 ثانية) في vercel.json
+
+// محاولات متعددة بتأخير متصاعد، بس لو الفشل مؤقت (HTML مؤقت/ضغط/شبكة)
 async function callGASWithRetry(fn, args, rid) {
-  if (!READ_FNS.has(fn)) {
-    // كتابة: محاولة واحدة بمهلة أطول، من غير إعادة محاولة
+  const t0 = Date.now();
+  const isRead = READ_FNS.has(fn);
+  const safeWrite = !isRead && SAFE_RETRY_WRITES.has(fn) && !!rid;
+
+  if (!isRead && !safeWrite) {
+    // كتابة غير آمنة للإعادة: محاولة واحدة بمهلة أطول
     return await callGAS(fn, args, rid, WRITE_TIMEOUT_MS);
   }
-  try {
-    return await callGAS(fn, args, rid, UPSTREAM_TIMEOUT_MS);
-  } catch (e1) {
-    return await callGAS(fn, args, rid, UPSTREAM_TIMEOUT_MS);
+
+  const delays = isRead ? [500, 1500] : [900, 2200];
+  const perTry = isRead ? UPSTREAM_TIMEOUT_MS : 22000;
+  let lastErr;
+  for (let i = 0; i <= delays.length; i++) {
+    const left = TOTAL_BUDGET_MS - (Date.now() - t0);
+    if (left < 4000) break;
+    try {
+      return await callGAS(fn, args, rid, Math.min(perTry, left - 1000));
+    } catch (e) {
+      lastErr = e;
+      if (!e.retryable || i === delays.length) break;
+      await sleep(delays[i]);
+    }
   }
+  throw lastErr || makeErr('تعذّر تنفيذ الطلب', 'UNKNOWN', false);
 }
 
 module.exports = async (req, res) => {

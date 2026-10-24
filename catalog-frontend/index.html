@@ -35,11 +35,17 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="كيرو مان" />
     <meta name="description" content="كتالوج المنتجات الرسمي — Kero Man" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="كيرو مان" />
+    <meta property="og:title" content="كتالوج كيرو مان" />
+    <meta property="og:description" content="كتالوج المنتجات الرسمي — Kero Man" />
+    <meta property="og:image" content="/assets/logo/favicon-512.png" />
+    <meta name="twitter:card" content="summary" />
     <link href="/assets/fonts/fonts.css" rel="stylesheet" />
     <!-- ═══════════════════════════════════════════════════════
          Tabler Icons — مستضافة محليًا (assets/icons) بدل CDN
          ═══════════════════════════════════════════════════════ -->
-    <link rel="stylesheet" href="/assets/icons/tabler-icons.min.css" />
+    <link rel="stylesheet" href="/assets/icons/tabler-icons.subset.css" />
 
     <style>
       /* ===== RESET & VARIABLES ===== */
@@ -4131,8 +4137,13 @@
       // بيانات وطلبات زيادة من غير داعي وبيبطّئ التحميل الأول للكتالوج.
       // بنستبدل الرقم بمقاس أصغر بس لعرض الشبكة، ونسيب باقي الاستخدامات
       // (المعرض، السلة) على المقاس الأصلي عشان الجودة تفضل كويسة.
+      // صور Google Drive بتعدّي على /api/img (كاش CDN مشترك = أسرع بكتير
+      // وبدون Rate-limit من Google). لو البروكسي فشل، _imgFail بيرجع
+      // لرابط Google المباشر فورًا.
       function _gridThumbUrl(url) {
         if (!url) return url;
+        var m = /^https:\/\/lh3\.googleusercontent\.com\/d\/([\w-]+)=w\d+$/.exec(url);
+        if (m) return "/api/img?id=" + m[1] + "&w=260";
         return url.replace(/=w\d+$/, "=w260");
       }
 
@@ -4161,6 +4172,12 @@
       function _imgRetryUrl(img, n) {
         var src = img.getAttribute("data-src0") || img.getAttribute("src") || "";
         if (!img.getAttribute("data-src0")) img.setAttribute("data-src0", src);
+        var pm = /^\/api\/img\?id=([\w-]+)&w=\d+/.exec(src);
+        if (pm) {
+          /* 1: Google مباشرة · 2+: البروكسي بمقاس تاني */
+          if (n === 1) return "https://lh3.googleusercontent.com/d/" + pm[1] + "=w260";
+          return "/api/img?id=" + pm[1] + "&w=" + (n % 2 ? 260 : 300) + "&_rt=" + n;
+        }
         if (/=w\d+$/.test(src)) {
           return n === 0 ? src : src.replace(/=w\d+$/, _IMG_ALT_SIZES[(n - 1) % _IMG_ALT_SIZES.length]);
         }
@@ -4171,10 +4188,13 @@
         var n = +(img.getAttribute("data-rt") || 0);
         if (n >= _IMG_RETRY_DELAYS.length) return _imgPlaceholder(img);
         img.setAttribute("data-rt", n + 1);
-        var delay = _IMG_RETRY_DELAYS[n] + Math.floor(Math.random() * 400);
+        /* أول فشل على البروكسي → جرّب Google المباشر فورًا من غير انتظار */
+        var viaProxy = /^\/api\/img\?/.test(img.getAttribute("data-src0") || img.getAttribute("src") || "");
+        var delay = n === 0 && viaProxy ? 0 : _IMG_RETRY_DELAYS[n] + Math.floor(Math.random() * 400);
+        var next = n + (viaProxy ? 1 : 0);
         setTimeout(function () {
           if (!img.isConnected) return;
-          img.src = _imgRetryUrl(img, n);
+          img.src = _imgRetryUrl(img, viaProxy ? next : n);
         }, delay);
       }
       window._imgFail = _imgFail;
@@ -4195,16 +4215,78 @@
         if (document.visibilityState === "visible") _imgRetryAllFailed();
       });
 
+      // ── صور المودال والمعرض: نفس البروكسي/الكاش (بمقاسها الأصلي) ──
+      function _gx(src, w) {
+        if (!src) return src;
+        var m = /^https:\/\/lh3\.googleusercontent\.com\/d\/([\w-]+)=w(\d+)$/.exec(src);
+        if (!m) return src;
+        return "/api/img?id=" + m[1] + "&w=" + (w || m[2]);
+      }
+      function _gxDirect(src) {
+        var m = /^\/api\/img\?id=([\w-]+)&w=(\d+)/.exec(src || "");
+        return m ? "https://lh3.googleusercontent.com/d/" + m[1] + "=w" + m[2] : "";
+      }
+      /* فشل البروكسي → جرّب Google مباشرة مرة واحدة، وبعدها بس نخفي */
+      function _gxFail(img) {
+        var d = !img.getAttribute("data-gx") && _gxDirect(img.getAttribute("src"));
+        if (d) { img.setAttribute("data-gx", "1"); img.src = d; }
+        else img.style.display = "none";
+      }
+
       // ── Boot ─────────────────────────────────────────────────────
       console.log("CatalogPublic build: 2026-07-17-v3 (add-to-cart debug)");
       // ── تحميل الكتالوج العام (نفس البيانات لكل الزوار) ───────────
+      /* عرض آخر نسخة محفوظة فورًا (localStorage) وتحديثها من السيرفر في
+         الخلفية — فتح الكتالوج بعد أول مرة بيبقى لحظي بدل ما يستنى
+         Apps Script. لو البيانات الجديدة نفس القديمة مفيش إعادة رسم، فمفيش
+         قفزة في السكرول. */
+      var _CAT_CACHE_KEY = "catalog_cache_v1";
+      var _CAT_CACHE_MAX_AGE = 24 * 60 * 60 * 1000;
+      function _catCacheId() { return String(_URL_GROUPS || "") + "|" + String(_URL_WH || ""); }
+      function _catCacheRead() {
+        try {
+          var o = JSON.parse(localStorage.getItem(_CAT_CACHE_KEY) || "null");
+          if (!o || o.id !== _catCacheId() || !o.d || !o.d.success) return null;
+          if (Date.now() - (o.t || 0) > _CAT_CACHE_MAX_AGE) return null;
+          return o;
+        } catch (e) { return null; }
+      }
+      function _catCacheWrite(raw) {
+        try {
+          localStorage.setItem(_CAT_CACHE_KEY, JSON.stringify({ id: _catCacheId(), t: Date.now(), d: raw }));
+        } catch (e) { /* التخزين ممتلئ أو ممنوع — عادي */ }
+      }
+      var _openedFromUrl = false;
       function _bootCatalog() {
         _setWhatsAppBtn();
         _bindSearch();
 
+        var cached = _catCacheRead();
+        var cachedStr = "";
+        if (cached) {
+          try { cachedStr = JSON.stringify(cached.d); } catch (e) {}
+          /* نسخة مستقلة، لأن _onDataLoaded بيعدّل الأصناف في مكانها */
+          _onDataLoaded(JSON.parse(cachedStr));
+        }
+
         google.script.run
-          .withSuccessHandler(_onDataLoaded)
-          .withFailureHandler(_onError)
+          .withSuccessHandler(function (d) {
+            if (!d || !d.success) {
+              if (cached) return; /* سيب النسخة المعروضة بدل شاشة خطأ */
+              return _onDataLoaded(d);
+            }
+            var fresh = "";
+            try { fresh = JSON.stringify(d); } catch (e) {}
+            _catCacheWrite(d);
+            if (!cached) return _onDataLoaded(d);
+            if (fresh && fresh === cachedStr) return; /* نفس البيانات */
+            var y = window.scrollY;
+            _onDataLoaded(d);
+            try { window.scrollTo(0, y); } catch (e) {}
+          })
+          .withFailureHandler(function (e) {
+            if (!cached) _onError(e);
+          })
           .getCatalogPublicData(_URL_GROUPS, _URL_WH);
       }
 
@@ -4843,7 +4925,9 @@
               (it.image_url
                 ? '<img src="' +
                   _esc(_gridThumbUrl(it.image_url)) +
-                  '" loading="lazy" alt="" onerror="_imgFail(this)">'
+                  '" loading="lazy" alt="' +
+                  _esc(it.name || "") +
+                  '" onerror="_imgFail(this)">'
                 : '<div class="card-img-ph"><div class="ph-icon">📦</div></div>') +
               "</div>" +
               '<div class="top-name">' +
@@ -5259,7 +5343,10 @@
         var it = PUB.items.find(function (x) {
           return x.code === code;
         });
-        var url = location.origin + "/?item=" + encodeURIComponent(code);
+        /* /s/<code> بيرجّع معاينة (صورة + اسم + سعر) لواتساب/فيسبوك، وبعدها
+           بيحوّل الزائر لـ /?item=<code> — لو الفانكشن مش متاحة الرابط
+           القديم بيفضل شغال بنفس الطريقة */
+        var url = location.origin + "/s/" + encodeURIComponent(code);
         var title = it ? it.name : "";
         if (navigator.share) {
           navigator.share({ title: title, url: url }).catch(function () {});
@@ -5278,12 +5365,16 @@
       }
       function _openItemFromUrl() {
         try {
+          if (_openedFromUrl) return;
           var c = new URLSearchParams(location.search).get("item");
           if (!c) return;
           var it = PUB.items.find(function (x) {
             return x.code === c;
           });
-          if (it) openDrawer(c);
+          if (it) {
+            _openedFromUrl = true;
+            openDrawer(c);
+          }
         } catch (e) {}
       }
 
@@ -5316,7 +5407,7 @@
       /* عدد الصور اللي تتحمل فورًا (eager/high-priority) بدل ما تستنى الـ lazy —
          على الموبايل بيبقى عمود واحد فبس 2-3 كروت ظاهرة فعليًا فوق الشاشة،
          فمفيش داعي نحمّل 8 صور بأولوية عالية ونزاحم أول كروت ظاهرة فعلاً */
-      var _EAGER_IMG_COUNT = window.innerWidth <= 768 ? 4 : 8;
+      var _EAGER_IMG_COUNT = window.innerWidth <= 768 ? 8 : 12;
 
       // ── Grid ─────────────────────────────────────────────────────
       function _buildGrid(items) {
@@ -5372,10 +5463,12 @@
         var imgHtml = it.image_url
           ? '<img src="' +
             _esc(_gridThumbUrl(it.image_url)) +
-            '" class="card-img" ' +
+            '" class="card-img" alt="' +
+            _esc(it.name || "") +
+            '" ' +
             (_isEager
               ? 'loading="eager" fetchpriority="high"'
-              : 'loading="lazy" fetchpriority="low"') +
+              : 'loading="lazy"') +
             ' decoding="async"' +
             " onload=\"this.classList.add('loaded')\"" +
             ' onerror="_imgFail(this)">'
@@ -5924,7 +6017,7 @@
           _galleryState.loaded[src] = true;
           cb();
         };
-        im.src = src;
+        im.src = _gx(src);
       }
 
       /* يعرض صورة بعينها في المعرض بتقنية الـ crossfade بين طبقتين،
@@ -5945,12 +6038,14 @@
 
         var apply = function () {
           if (layerBack) {
-            layerBack.src = src;
+            layerBack.removeAttribute("data-gx");
+            layerBack.style.display = "";
+            layerBack.src = _gx(src);
             layerBack.classList.add("active");
           }
           if (layerFront) layerFront.classList.remove("active");
           if (backdrop) {
-            backdrop.style.backgroundImage = "url('" + src + "')";
+            backdrop.style.backgroundImage = "url('" + _gx(src) + "')";
             backdrop.classList.add("active");
           }
           _galleryState.front = back;
@@ -5959,11 +6054,13 @@
         if (skipFade) {
           _preload(src, function () {
             if (layerFront) {
-              layerFront.src = src;
+              layerFront.removeAttribute("data-gx");
+              layerFront.style.display = "";
+              layerFront.src = _gx(src);
               layerFront.classList.add("active");
             }
             if (backdrop) {
-              backdrop.style.backgroundImage = "url('" + src + "')";
+              backdrop.style.backgroundImage = "url('" + _gx(src) + "')";
               backdrop.classList.add("active");
             }
           });
@@ -6065,8 +6162,8 @@
             '<div class="modal-gallery">' +
             '<div class="modal-gallery-main" id="modal-gallery-main" onclick="openLightbox()">' +
             '<div class="mgm-backdrop" id="gallery-zoom-backdrop"></div>' +
-            '<img class="mgm-img" id="modal-main-img-0" alt="" onerror="this.style.display=\'none\'">' +
-            '<img class="mgm-img" id="modal-main-img-1" alt="" onerror="this.style.display=\'none\'">' +
+            '<img class="mgm-img" id="modal-main-img-0" alt="" onerror="_gxFail(this)">' +
+            '<img class="mgm-img" id="modal-main-img-1" alt="" onerror="_gxFail(this)">' +
             '<button class="gallery-arrow gallery-arrow-prev" onclick="event.stopPropagation();_galleryPrev()"><i class="ti ti-chevron-right"></i></button>' +
             '<button class="gallery-arrow gallery-arrow-next" onclick="event.stopPropagation();_galleryNext()"><i class="ti ti-chevron-left"></i></button>' +
             '<div class="gallery-dots" id="gallery-dots"></div>' +

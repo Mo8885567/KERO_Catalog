@@ -18,7 +18,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta name="apple-mobile-web-app-title" content="إدارة الكتالوج" />
     <link href="/assets/fonts/fonts.css" rel="stylesheet" />
-    <link rel="stylesheet" href="/assets/icons/tabler-icons.min.css" />
+    <link rel="stylesheet" href="/assets/icons/tabler-icons.admin-subset.css" />
     <link rel="stylesheet" href="/assets/css/custom-select.css" />
     <script src="/assets/js/ui-dialogs.js"></script>
     <style>
@@ -1626,6 +1626,23 @@ tbody tr.off {
   background: var(--danger);
   color: #fff;
 }
+.toast.has-act {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.toast-act {
+  flex-shrink: 0;
+  border: 1.5px solid currentColor;
+  background: transparent;
+  color: inherit;
+  border-radius: 6px;
+  padding: 4px 12px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
 html[data-theme="dark"] .toast {
   background: #e8edf2;
   color: #0f1111;
@@ -1794,7 +1811,10 @@ html[data-theme="dark"] .toast.err {
               <h2>لوحة المعلومات</h2>
               <p id="dashSub">ملخص سريع للكتالوج والطلبات</p>
             </div>
-            <button class="btn btn-sm" onclick="refreshAll()"><i class="ti ti-refresh"></i> تحديث</button>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <a class="btn btn-sm" href="/api/imgcheck" target="_blank" rel="noopener" title="يفحص صورة كل صنف ويعرض اللي مش بتفتح"><i class="ti ti-photo-search"></i> فحص الصور</a>
+              <button class="btn btn-sm" onclick="refreshAll()"><i class="ti ti-refresh"></i> تحديث</button>
+            </div>
           </div>
           <div class="stat-grid" id="dashStats"></div>
           <div class="dash-grid" id="dashLists"></div>
@@ -2262,14 +2282,28 @@ function fixDriveUrl(url) {
   return "https://lh3.googleusercontent.com/d/" + m[1] + "=w500";
 }
 var toastTimer = null;
-function showToast(msg, isErr) {
+// action = { label, fn } → زرار داخل التوست (مثلاً "إعادة المحاولة"). رسائل
+// الخطأ بتفضل أطول عشان تتقري، ومع الزرار أطول كمان.
+function showToast(msg, isErr, action) {
   var t = $("toast");
   t.textContent = msg;
-  t.className = "toast show" + (isErr ? " err" : "");
+  if (action && action.fn) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "toast-act";
+    b.textContent = action.label || "إعادة المحاولة";
+    b.onclick = function () {
+      t.classList.remove("show");
+      clearTimeout(toastTimer);
+      action.fn();
+    };
+    t.appendChild(b);
+  }
+  t.className = "toast show" + (isErr ? " err" : "") + (action && action.fn ? " has-act" : "");
   clearTimeout(toastTimer);
   toastTimer = setTimeout(function () {
     t.classList.remove("show");
-  }, 2800);
+  }, action && action.fn ? 9000 : isErr ? 6500 : 2800);
 }
 function timeAgo(iso) {
   var t = Date.parse(iso);
@@ -2705,9 +2739,23 @@ function parseImagesJson(raw) {
     return [];
   }
 }
+// مصغّرات الأدمن بتعدّي على /api/img (كاش CDN + مقاس صغير) بدل ما كل صف
+// يضرب Google بمقاس 500. لو البروكسي فشل بنرجع لرابط Google المباشر.
+function thumbSrc(u, w) {
+  var m = /^https:\/\/lh3\.googleusercontent\.com\/d\/([\w-]+)=w\d+$/.exec(u || "");
+  return m ? "/api/img?id=" + m[1] + "&w=" + (w || 160) : u;
+}
+function thumbFail(img) {
+  var m = /^\/api\/img\?id=([\w-]+)/.exec(img.getAttribute("src") || "");
+  if (m && !img.getAttribute("data-gx")) {
+    img.setAttribute("data-gx", "1");
+    img.src = "https://lh3.googleusercontent.com/d/" + m[1] + "=w300";
+  } else img.remove();
+}
 function thumbHtml(it) {
-  var u = it && it.image_url ? fixDriveUrl(it.image_url) : "";
-  return '<div class="thumb">' + (u ? '<img src="' + esc(u) + '" alt="" loading="lazy" onerror="this.remove()">' : '<i class="ti ti-photo-off"></i>') + "</div>";
+  var u = it && it.image_url ? thumbSrc(fixDriveUrl(it.image_url), 160) : "";
+  var alt = it && it.name ? esc(it.name) : "";
+  return '<div class="thumb">' + (u ? '<img src="' + esc(u) + '" alt="' + alt + '" loading="lazy" decoding="async" onerror="thumbFail(this)">' : '<i class="ti ti-photo-off"></i>') + "</div>";
 }
 // نواقص الصنف (للوحة المعلومات والفلتر)
 function itemIssues(it) {
@@ -3154,7 +3202,13 @@ function inlineEdit(id, input) {
       input.disabled = false;
       input.classList.remove("saving");
       input.value = input.getAttribute("data-orig");
-      showToast("خطأ: " + err.message, true);
+      showToast(err.message, true, {
+        label: "إعادة المحاولة",
+        fn: function () {
+          input.value = String(n);
+          inlineEdit(id, input);
+        },
+      });
     });
 }
 function toggleActive(id, chk) {
@@ -3184,7 +3238,13 @@ function toggleActive(id, chk) {
       delete _busy[bk];
       chk.disabled = false;
       chk.checked = !on;
-      showToast("خطأ: " + err.message, true);
+      showToast(err.message, true, {
+        label: "إعادة المحاولة",
+        fn: function () {
+          chk.checked = on;
+          toggleActive(id, chk);
+        },
+      });
     });
 }
 function togglePin(id) {
@@ -3204,7 +3264,7 @@ function togglePin(id) {
     })
     .catch(function (err) {
       delete _busy[bk];
-      showToast("خطأ: " + err.message, true);
+      showToast(err.message, true, { label: "إعادة المحاولة", fn: function () { togglePin(id); } });
     });
 }
 async function deleteItem(id) {

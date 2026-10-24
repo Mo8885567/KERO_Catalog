@@ -46,6 +46,13 @@
     adminLogin: true, adminGetData: true, adminGetSettings: true, adminGetOrders: true, adminListLinks: true,
     adminPushStats: true,
   };
+  // كتابات آمنة نعيد إرسالها بنفس الـ rid لو فشلت الشبكة نفسها (الباكيند بيمنع
+  // التنفيذ المزدوج). لازم تتطابق مع SAFE_RETRY_WRITES في api/gas.js.
+  var SAFE_RETRY_WRITES = {
+    adminSaveItem: true, adminDeleteItem: true, adminSaveGroup: true, adminDeleteGroup: true,
+    adminSaveSettings: true, adminBulkUpdate: true, adminReorderGroups: true,
+    adminSetLinkActive: true, adminDeleteLink: true,
+  };
   function _newRid(fnName) {
     return fnName + '-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
   }
@@ -113,7 +120,19 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fn: fnName, args: args || [], rid: isRead ? undefined : rid }),
       };
-      req = isRead ? _fetchWithRetry(PROXY_PATH, opts) : _fetchWithTimeout(PROXY_PATH, opts, WRITE_TIMEOUT_MS);
+      if (isRead) {
+        req = _fetchWithRetry(PROXY_PATH, opts);
+      } else if (SAFE_RETRY_WRITES[fnName] && rid) {
+        /* فشل شبكة فقط (مش مهلة): نعيد مرة واحدة بنفس الـ rid بعد لحظة */
+        req = _fetchWithTimeout(PROXY_PATH, opts, WRITE_TIMEOUT_MS).catch(function (e) {
+          if (e && e.name === 'AbortError') throw e;
+          return new Promise(function (r) { setTimeout(r, 900); }).then(function () {
+            return _fetchWithTimeout(PROXY_PATH, opts, WRITE_TIMEOUT_MS);
+          });
+        });
+      } else {
+        req = _fetchWithTimeout(PROXY_PATH, opts, WRITE_TIMEOUT_MS);
+      }
     }
     return req.then(function (res) {
       if (res.status === 404) {

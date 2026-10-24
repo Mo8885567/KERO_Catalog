@@ -14,6 +14,10 @@
   ],
   "rewrites": [
     {
+      "source": "/s/:code",
+      "destination": "/api/share?item=:code"
+    },
+    {
       "source": "/admin",
       "destination": "/admin/index.html"
     }
@@ -122,6 +126,15 @@
     },
     "api/push.js": {
       "maxDuration": 60
+    },
+    "api/share.js": {
+      "maxDuration": 15
+    },
+    "api/imgcheck.js": {
+      "maxDuration": 60
+    },
+    "api/img.js": {
+      "maxDuration": 15
     }
   }
 }

@@ -17,7 +17,15 @@
   }
   function baseKey(u) { return String(u || "").replace(/=w\d+[^\/]*$/, ""); }
   function thumb(u) { return typeof _gridThumbUrl === "function" ? _gridThumbUrl(u) : u; }
-  function hires(u) { return /googleusercontent\.com/.test(u || "") ? String(u).replace(/=w\d+[^\/]*$/, "=w1400") : u; }
+  function hires(u) {
+    var m = /^https:\/\/lh3\.googleusercontent\.com\/d\/([\w-]+)=w\d+/.exec(u || "");
+    if (m) return "/api/img?id=" + m[1] + "&w=1400"; /* كاش CDN — لو فشل بنرجع لجوجل مباشرة تحت */
+    return /googleusercontent\.com/.test(u || "") ? String(u).replace(/=w\d+[^\/]*$/, "=w1400") : u;
+  }
+  function hiresDirect(src) {
+    var m = /^\/api\/img\?id=([\w-]+)/.exec(src || "");
+    return m ? "https://lh3.googleusercontent.com/d/" + m[1] + "=w1400" : "";
+  }
   function findItem(code) {
     if (typeof PUB === "undefined" || !PUB.items) return null;
     for (var i = 0; i < PUB.items.length; i++) {
@@ -116,7 +124,9 @@
     wrap.addEventListener("touchstart", function (e) {
       if (e.touches.length !== 1) { active = false; return; }
       sx = e.touches[0].clientX; sy = e.touches[0].clientY; active = true; moved = false;
-      ensureLayers();
+      /* ما بنحمّلش الصور الإضافية هنا — اللمس بيحصل أثناء السكرول العادي
+         وكان بيحمّل لحد 5 صور لكل كارت بيتلمس وبيزاحم الصور الأساسية.
+         بتتحمّل أول ما المستخدم يسحب أفقيًا فعلًا (show → ensureLayers). */
     }, { passive: true });
     wrap.addEventListener("touchmove", function (e) {
       if (!active) return;
@@ -198,7 +208,11 @@
       zoomAt(e.clientX, e.clientY, st.s * (e.deltaY < 0 ? 1.18 : 1 / 1.18));
     }, { passive: false });
     LB.img.addEventListener("load", function () { LB.spin.style.display = "none"; LB.img.style.opacity = 1; });
-    LB.img.addEventListener("error", function () { LB.spin.style.display = "none"; LB.img.style.opacity = 1; });
+    LB.img.addEventListener("error", function () {
+      var d = !LB.img.getAttribute("data-gx") && hiresDirect(LB.img.getAttribute("src"));
+      if (d) { LB.img.setAttribute("data-gx", "1"); LB.img.src = d; return; }
+      LB.spin.style.display = "none"; LB.img.style.opacity = 1;
+    });
     return LB;
   }
 
@@ -231,6 +245,7 @@
     st.s = 1; st.x = 0; st.y = 0;
     LB.img.style.opacity = 0.01;
     LB.spin.style.display = "block";
+    LB.img.removeAttribute("data-gx");
     LB.img.src = hires(src);
     apply(false);
     LB.count.textContent = st.list.length > 1 ? st.i + 1 + " / " + st.list.length : "";

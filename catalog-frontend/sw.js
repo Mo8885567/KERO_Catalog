@@ -3,9 +3,11 @@
 // بس لو النت واقع. الخطوط والصور والأيقونات (ملفات ثابتة) بتتخزن للسرعة.
 // ملحوظة: غيّر CACHE_VERSION مع كل نشر لو عايز تمسح الكاش القديم بالكامل.
 
-const CACHE_VERSION = "keroman-v14";
+const CACHE_VERSION = "keroman-v15";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const STATE_CACHE = "keroman-state"; // بيفضل بين النسخ (آخر إشعار عروض اتبعت)
+const IMG_CACHE = "keroman-img"; // مصغّرات الأصناف (/api/img) — بتفضل بين النسخ
+const IMG_CACHE_MAX = 400;       // أقصى عدد صور محفوظة (الأقدم بيتشال)
 
 const PRECACHE_URLS = [
   "/manifest.json",
@@ -28,7 +30,7 @@ self.addEventListener("activate", (event) => {
     caches
       .keys()
       .then((keys) =>
-        Promise.all(keys.filter((key) => key !== STATIC_CACHE && key !== STATE_CACHE).map((key) => caches.delete(key)))
+        Promise.all(keys.filter((key) => key !== STATIC_CACHE && key !== STATE_CACHE && key !== IMG_CACHE).map((key) => caches.delete(key)))
       )
       .then(() => self.clients.claim())
   );
@@ -43,13 +45,44 @@ function isStaticAsset(url) {
   return /\.(woff2?|ttf|png|jpe?g|webp|svg|ico|gif)$/i.test(url.pathname);
 }
 
+async function trimImgCache(cache) {
+  try {
+    const keys = await cache.keys();
+    for (let i = 0; i < keys.length - IMG_CACHE_MAX; i++) await cache.delete(keys[i]);
+  } catch (e) {}
+}
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
   // متلمسش غير GET من نفس الدومين (بيانات Apps Script تروح للنت على طول)
   if (request.method !== "GET" || url.origin !== self.location.origin) return;
-  // طلبات الـ API بتاعتنا دايمًا من النت
+  // صور الأصناف: نعرض المحفوظ فورًا ونحدّثه في الخلفية (stale-while-revalidate)
+  // — فتح الكتالوج تاني بيعرض الصور لحظيًا حتى لو الشبكة بطيئة/واقعة
+  if (url.pathname === "/api/img") {
+    event.respondWith(
+      caches.open(IMG_CACHE).then(async (cache) => {
+        const cached = await cache.match(request);
+        const network = fetch(request)
+          .then(async (res) => {
+            if (res && res.ok) {
+              await cache.put(request, res.clone());
+              trimImgCache(cache);
+            }
+            return res;
+          })
+          .catch(() => null);
+        if (cached) {
+          event.waitUntil(network);
+          return cached;
+        }
+        return (await network) || Response.error();
+      })
+    );
+    return;
+  }
+  // باقي طلبات الـ API بتاعتنا دايمًا من النت
   if (url.pathname.startsWith("/api/")) return;
 
   if (isStaticAsset(url)) {

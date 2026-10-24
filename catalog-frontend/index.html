@@ -235,6 +235,29 @@
         background: var(--text3);
       }
 
+      /* ===== شريط حقوق المطوّر ===== */
+      .dev-credit {
+        direction: ltr;
+        text-align: center;
+        font-size: 11.5px;
+        line-height: 1;
+        padding: 7px 12px;
+        background: var(--surface2);
+        color: var(--text3);
+        border-bottom: 1px solid var(--border);
+        letter-spacing: 0.2px;
+        font-family: "IBM Plex Sans Arabic", system-ui, sans-serif;
+      }
+      .dev-credit a {
+        color: var(--primary, #2563eb);
+        font-weight: 600;
+        text-decoration: none;
+      }
+      .dev-credit a:hover,
+      .dev-credit a:focus-visible {
+        text-decoration: underline;
+      }
+
       /* ===== HEADER ===== */
       .header {
         position: sticky;
@@ -3456,6 +3479,17 @@
     <script src="/src/config.js"></script>
     <script src="/src/api/client.js"></script>
 
+    <!-- ===== DEVELOPER CREDIT ===== -->
+    <div class="dev-credit">
+      Developed by
+      <a
+        href="https://www.linkedin.com/in/mohamed-muhmoud-932320301"
+        target="_blank"
+        rel="noopener noreferrer"
+        >Eng. Mohamed</a
+      >
+    </div>
+
     <!-- ===== HEADER ===== -->
     <header class="header">
       <div class="header-inner">
@@ -4101,6 +4135,65 @@
         if (!url) return url;
         return url.replace(/=w\d+$/, "=w260");
       }
+
+      // ── إعادة محاولة تحميل صور الكروت ──────────────────────────
+      // المشكلة: أي فشل مؤقت (ضغط/Rate-limit من Google على lh3، شبكة موبايل
+      // ضعيفة، تبديل واي فاي/بيانات) كان بيستبدل الصورة بـ "لا توجد صورة"
+      // نهائيًا من أول مرة. دلوقتي بنعيد المحاولة 3 مرات بتأخير متصاعد
+      // (ومقاس مختلف عشان نتخطى أي فشل متخزّن)، ولو فشلت كلها بنعرض
+      // البديل مع إمكانية إعادة المحاولة تلقائيًا أول ما النت يرجع.
+      var _IMG_RETRY_DELAYS = [700, 1800, 4000];
+      var _IMG_ALT_SIZES = ["=w300", "=w500"];
+      function _imgPlaceholder(img) {
+        var wrap = img.parentElement;
+        if (!wrap) return;
+        img.style.display = "none";
+        if (wrap.querySelector(".card-img-ph")) return;
+        var ph = document.createElement("div");
+        ph.className = "card-img-ph";
+        ph.setAttribute("data-failed", "1");
+        ph.innerHTML =
+          '<div class="ph-icon">📦</div><div class="ph-text">لا توجد صورة</div>';
+        wrap.appendChild(ph);
+        window._imgFailed = window._imgFailed || [];
+        window._imgFailed.push(img);
+      }
+      function _imgRetryUrl(img, n) {
+        var src = img.getAttribute("data-src0") || img.getAttribute("src") || "";
+        if (!img.getAttribute("data-src0")) img.setAttribute("data-src0", src);
+        if (/=w\d+$/.test(src)) {
+          return n === 0 ? src : src.replace(/=w\d+$/, _IMG_ALT_SIZES[(n - 1) % _IMG_ALT_SIZES.length]);
+        }
+        return src + (src.indexOf("?") > -1 ? "&" : "?") + "_rt=" + n + "_" + Date.now();
+      }
+      function _imgFail(img) {
+        if (!img || img.classList.contains("loaded")) return;
+        var n = +(img.getAttribute("data-rt") || 0);
+        if (n >= _IMG_RETRY_DELAYS.length) return _imgPlaceholder(img);
+        img.setAttribute("data-rt", n + 1);
+        var delay = _IMG_RETRY_DELAYS[n] + Math.floor(Math.random() * 400);
+        setTimeout(function () {
+          if (!img.isConnected) return;
+          img.src = _imgRetryUrl(img, n);
+        }, delay);
+      }
+      window._imgFail = _imgFail;
+      function _imgRetryAllFailed() {
+        var list = window._imgFailed || [];
+        window._imgFailed = [];
+        list.forEach(function (img) {
+          if (!img.isConnected) return;
+          var ph = img.parentElement && img.parentElement.querySelector(".card-img-ph[data-failed]");
+          if (ph) ph.remove();
+          img.style.display = "";
+          img.setAttribute("data-rt", "0");
+          img.src = _imgRetryUrl(img, 0);
+        });
+      }
+      window.addEventListener("online", _imgRetryAllFailed);
+      document.addEventListener("visibilitychange", function () {
+        if (document.visibilityState === "visible") _imgRetryAllFailed();
+      });
 
       // ── Boot ─────────────────────────────────────────────────────
       console.log("CatalogPublic build: 2026-07-17-v3 (add-to-cart debug)");
@@ -4750,7 +4843,7 @@
               (it.image_url
                 ? '<img src="' +
                   _esc(_gridThumbUrl(it.image_url)) +
-                  '" loading="lazy" alt="">'
+                  '" loading="lazy" alt="" onerror="_imgFail(this)">'
                 : '<div class="card-img-ph"><div class="ph-icon">📦</div></div>') +
               "</div>" +
               '<div class="top-name">' +
@@ -5285,7 +5378,7 @@
               : 'loading="lazy" fetchpriority="low"') +
             ' decoding="async"' +
             " onload=\"this.classList.add('loaded')\"" +
-            " onerror=\"this.parentElement.innerHTML='<div class=card-img-ph><div class=ph-icon>📦</div><div class=ph-ph-text>لا توجد صورة</div></div>'\">"
+            ' onerror="_imgFail(this)">'
           : '<div class="card-img-ph"><div class="ph-icon">📦</div></div>';
 
         var colors = _parseColors(it.colors_json);

@@ -3473,6 +3473,7 @@
       })();
     </script>
     <link rel="stylesheet" href="/assets/css/amazon-theme.css" />
+    <link rel="stylesheet" href="/assets/css/header-pro.css" />
     <link rel="stylesheet" href="/assets/css/custom-select.css" />
     <script src="/assets/js/ui-dialogs.js"></script>
   </head>
@@ -3639,9 +3640,9 @@
             placeholder="ابحث عن صنف، كود، أو وصف..."
             autocomplete="off"
           />
-          <span class="search-icon">🔍</span>
+          <span class="search-icon"><i class="ti ti-search"></i></span>
           <button class="search-clear" id="search-clear-btn" title="مسح البحث">
-            ✕
+            <i class="ti ti-x"></i>
           </button>
           <div class="search-suggest" id="search-suggest" style="display: none"></div>
         </div>
@@ -3682,7 +3683,7 @@
               title="عرض شبكة"
               onclick="setView('grid')"
             >
-              ⊞
+              <i class="ti ti-layout-grid"></i>
             </button>
             <button
               class="view-btn"
@@ -3690,7 +3691,7 @@
               title="عرض قائمة"
               onclick="setView('list')"
             >
-              ☰
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
             </button>
           </div>
           <!-- زر المفضلة -->
@@ -3700,7 +3701,7 @@
           </button>
           <!-- زر السلة -->
           <button class="cart-btn" id="cart-open-btn" onclick="openCartPanel()">
-            🛒
+            <i class="ti ti-shopping-cart"></i>
             <span id="cart-btn-label">السلة</span>
             <span class="cart-badge" id="cart-badge">0</span>
           </button>
@@ -4604,7 +4605,7 @@
           if (it.group) used[it.group] = true;
         });
         var html =
-          '<button class="nav-link nav-all active" data-g="all" onclick="setGroupFilter(\'all\')">☰ كل الأصناف</button>';
+          '<button class="nav-link nav-all active" data-g="all" onclick="setGroupFilter(\'all\')"><i class="ti ti-layout-grid"></i>كل الأصناف</button>';
         PUB.groups.forEach(function (g) {
           if (!used[g.id] || g.hidden) return;
           html +=

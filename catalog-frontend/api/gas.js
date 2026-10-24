@@ -27,6 +27,8 @@
 // رابط نشر الـ Apps Script — يفضّل ضبطه من Vercel → Settings → Environment
 // Variables باسم GAS_URL (بدون إعادة نشر كود لو الرابط اتغيّر)، والقيمة هنا
 // مجرد fallback افتراضي (نفس الرابط الموجود أصلاً في src/config.js).
+const { sanitize, NOPRICING } = require('./_mode'); // وضع "بدون أسعار" (CATALOG_MODE)
+
 const GAS_URL =
   process.env.GAS_URL ||
   'https://script.google.com/macros/s/AKfycbwX2P9V9xyw-0u58666HcB2Uq_b5vsjezW2uPI0TgMYGIWysUoEwrGs_1F3qZCCl1baAw/exec';
@@ -253,6 +255,13 @@ module.exports = async (req, res) => {
       return;
     }
 
+    // النسخة العامة (بدون أسعار): الإدارة متعطّلة بالكامل — كل دوال admin* مرفوضة
+    if (NOPRICING && /^admin/i.test(String(fn || ''))) {
+      res.setHeader('Cache-Control', 'no-store');
+      res.status(403).json({ error: 'الإدارة غير متاحة في هذه النسخة' });
+      return;
+    }
+
     if (!fn || !ALLOWED_FNS.has(fn)) {
       res.setHeader('Cache-Control', 'no-store');
       res.status(400).json({ error: 'دالة غير مسموح بها: ' + fn });
@@ -260,6 +269,7 @@ module.exports = async (req, res) => {
     }
 
     const result = await callGASWithRetry(fn, args, rid);
+    if (CACHEABLE_FNS.has(fn) && fn !== 'ping') sanitize(result);
 
     const isCacheableRequest =
       req.method === 'GET' && CACHEABLE_FNS.has(fn) && !(result && result.success === false);

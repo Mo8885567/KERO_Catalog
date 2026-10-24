@@ -2,6 +2,10 @@
 <html lang="ar" dir="rtl">
   <head>
     <meta charset="UTF-8" />
+    <script src="/api/mode"></script>
+    <script>
+      if (window.CATALOG_MODE === "nopricing") document.documentElement.classList.add("no-prices");
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <script src="/assets/js/no-zoom.js"></script>
     <script src="/assets/js/no-copy.js"></script>
@@ -3861,6 +3865,15 @@
                 <option value="price-asc">السعر (الأقل)</option>
                 <option value="price-desc">السعر (الأعلى)</option>
               </select>
+              <script>
+                /* وضع بدون أسعار: شيل ترتيب السعر/الخصم قبل ما القائمة تتحوّل لشكلها المخصص */
+                if (window.CATALOG_MODE === "nopricing") {
+                  ["discount", "price-asc", "price-desc"].forEach(function (v) {
+                    var o = document.querySelector('#sort-select option[value="' + v + '"]');
+                    if (o) o.remove();
+                  });
+                }
+              </script>
             </div>
           </div>
           <div id="pub-items-wrap"></div>
@@ -4051,7 +4064,7 @@
         groupFilter: "all",
         statusFilter: "all",
         sortMode: "default",
-        WHATSAPP_NUMBER: "201025306678",
+        WHATSAPP_NUMBER: window.CATALOG_WA || "201025306678",
         SHOP_NAME: "Kero Man",
         urlGroups: _URL_GROUPS
           .split(",")
@@ -4065,7 +4078,7 @@
             return s.trim();
           })
           .filter(Boolean),
-        urlNoprices: _URL_NOPRICES === "1",
+        urlNoprices: _URL_NOPRICES === "1" || window.CATALOG_MODE === "nopricing",
         urlShowzero: _URL_SHOWZERO === "1", // أظهر الأصناف ذات رصيد صفر
         urlNoqty: _URL_NOQTY === "1", // أخفِ الرصيد والبادج عن العميل
       };
@@ -4384,7 +4397,7 @@
           }
           if (logoSvg) logoSvg.style.display = "none";
         }
-        if (cs.whatsapp) {
+        if (cs.whatsapp && !window.CATALOG_WA) {
           PUB.WHATSAPP_NUMBER = String(cs.whatsapp).replace(/\D/g, "");
           _setWhatsAppBtn();
         }
@@ -5005,7 +5018,7 @@
       }
       /* عروض اليوم: أعلى الأصناف خصمًا */
       function _buildDealsStrip() {
-        if (!_stripsAllowed()) return "";
+        if (!_stripsAllowed() || PUB.urlNoprices) return "";
         var list = PUB.items
           .filter(function (x) {
             return (
@@ -5636,7 +5649,7 @@
           (isDisabled
             ? "_showToast('❌ هذا الصنف غير متاح حالياً')"
             : "openOrderModal('" + _esc(it.code) + "')") +
-          '">💬 اطلب الآن</button>' +
+          '">💬 ' + (PUB.urlNoprices ? "اسأل عن السعر" : "اطلب الآن") + "</button>" +
           '<button class="btn-details" title="تفاصيل" onclick="event.stopPropagation();openDrawer(\'' +
           _esc(it.code) +
           "')\">👁️</button>" +
@@ -7126,12 +7139,12 @@
           "أهلاً " +
           PUB.SHOP_NAME +
           " 👋\n\n" +
-          "أريد طلب الأصناف التالية:\n\n" +
+          (PUB.urlNoprices ? "أريد معرفة أسعار الأصناف التالية:\n\n" : "أريد طلب الأصناف التالية:\n\n") +
           lines.join("\n") +
           (!PUB.urlNoprices && _tot > 0
             ? "\n\nالإجمالي التقريبي: " + _tot.toLocaleString("en-US") + " ج.م"
             : "") +
-          "\n\nأرجو التواصل لإتمام الطلب 🙏";
+          (PUB.urlNoprices ? "\n\nأرجو الرد بالسعر والتفاصيل 🙏" : "\n\nأرجو التواصل لإتمام الطلب 🙏");
         PUB_WA.send(msg, {
           source_type: "catalog_public_cart",
           items: CART.map(function (item) {
@@ -7156,7 +7169,7 @@
           "أهلاً " +
           PUB.SHOP_NAME +
           " 👋\n\n" +
-          "أريد طلب المنتج التالي:\n" +
+          (PUB.urlNoprices ? "أريد معرفة سعر المنتج التالي:\n" : "أريد طلب المنتج التالي:\n") +
           "• الصنف: " +
           itemName +
           " (" +
@@ -7166,7 +7179,7 @@
           qty +
           "\n" +
           (color ? "• اللون: " + color + "\n" : "") +
-          "\nأرجو التواصل لإتمام الطلب 🙏";
+          (PUB.urlNoprices ? "\nأرجو الرد بالسعر والتفاصيل 🙏" : "\nأرجو التواصل لإتمام الطلب 🙏");
         var _one = PUB.items.find(function (x) {
           return x.code === itemId;
         });

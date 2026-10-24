@@ -213,3 +213,12 @@
   .header::after,
   .whatsapp-btn::after { animation: none; }
 }
+
+/* ── نسخة بدون أسعار (html.no-prices بيتضاف من /api/mode) ── */
+html.no-prices #price-sidebar-section,
+html.no-prices .card-price-block,
+html.no-prices .card-price,
+html.no-prices .card-old-row,
+html.no-prices .mega-price,
+html.no-prices .sg-price,
+html.no-prices .tiers-box { display: none !important; }

@@ -93,6 +93,11 @@ async function sendAll(subs, payload) {
 }
 
 module.exports = async (req, res) => {
+  // النسخة العامة (بدون أسعار): إرسال الإشعارات من الأدمن متعطّل (مفتاح الاشتراك GET بس يفضل شغال)
+  if (require('./_mode').NOPRICING && req.method !== 'GET') {
+    res.status(403).json({ error: 'الإدارة غير متاحة في هذه النسخة' });
+    return;
+  }
   res.setHeader('Cache-Control', 'no-store');
   const pub = process.env.VAPID_PUBLIC_KEY;
   const priv = process.env.VAPID_PRIVATE_KEY;

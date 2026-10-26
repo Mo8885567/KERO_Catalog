@@ -285,7 +285,7 @@
     }).join("");
     LB.root.classList.add("open");
     /* وقف التبديل التلقائي وإحنا في وضع التكبير */
-    try { clearInterval(window._gallerySlideTimer); window._gallerySlideTimer = null; } catch (e) {}
+    try { if (typeof _galleryStopAuto === "function") _galleryStopAuto(); } catch (e) {}
     goTo(idx);
     LB.root.classList.add("hint");
     setTimeout(function () { if (LB) LB.root.classList.remove("hint"); }, 2600);
@@ -409,7 +409,6 @@
         var b = e.target.closest("button[data-i]");
         if (!b) return;
         e.stopPropagation();
-        try { clearInterval(window._gallerySlideTimer); window._gallerySlideTimer = null; } catch (x) {}
         if (typeof _galleryGoTo === "function") _galleryGoTo(+b.getAttribute("data-i"));
       };
     }
@@ -422,27 +421,12 @@
     }
   }
 
-  function bindMagnifier() {
-    var main = document.getElementById("modal-gallery-main");
-    if (!main || main._mxZoom) return;
-    if (!(window.matchMedia && matchMedia("(hover: hover) and (pointer: fine)").matches)) return;
-    main._mxZoom = true;
-    main.addEventListener("mousemove", function (e) {
-      var r = main.getBoundingClientRect();
-      var ox = ((e.clientX - r.left) / r.width) * 100, oy = ((e.clientY - r.top) / r.height) * 100;
-      main.style.setProperty("--zx", ox + "%");
-      main.style.setProperty("--zy", oy + "%");
-      main.classList.add("mx-zooming");
-    });
-    main.addEventListener("mouseleave", function () { main.classList.remove("mx-zooming"); });
-  }
-
   function patchGallery() {
     if (typeof window._galleryRender !== "function" || window._galleryRender._mx) return;
     var orig = window._galleryRender;
     var wrapped = function () {
       var r = orig.apply(this, arguments);
-      try { syncThumbs(); bindMagnifier(); } catch (e) {}
+      try { syncThumbs(); } catch (e) {}
       return r;
     };
     wrapped._mx = true;

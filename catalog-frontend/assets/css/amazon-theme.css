@@ -1156,17 +1156,6 @@ body:has(.mobile-cart-bar.has-items) .back-top { bottom: 84px; }
 .mx-thumbs button.on { opacity: 1; border-color: var(--primary, #1d4ed8); transform: translateY(-1px); }
 .mx-thumbs button img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-/* عدسة التكبير على الديسكتوب (الماوس فوق الصورة الكبيرة) */
-.modal-gallery-main.mx-zooming img.mgm-img.active {
-  transform: scale(2.1) !important;
-  transform-origin: var(--zx, 50%) var(--zy, 50%);
-  transition: opacity 0.5s ease, transform 0.12s ease-out !important;
-}
-.modal-gallery-main.mx-zooming .gallery-arrow,
-.modal-gallery-main.mx-zooming .gallery-dots,
-.modal-gallery-main.mx-zooming .gallery-counter,
-.modal-gallery-main.mx-zooming .modal-zoom-hint { opacity: 0; }
-
 /* اللايت بوكس الجديد */
 .mx-lb {
   position: fixed;
@@ -1339,3 +1328,24 @@ input, textarea, [contenteditable="true"], .allow-select {
   -webkit-user-select: text; user-select: text;
 }
 img, a { -webkit-user-drag: none; user-drag: none; -webkit-touch-callout: none; }
+
+
+/* ── شريط حقوق المطوّر: ثابت أسفل الشاشة دايماً ── */
+:root { --dc-h: 28px; }
+.dev-credit {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 510;
+  box-sizing: border-box; height: calc(var(--dc-h) + env(safe-area-inset-bottom));
+  padding: 8px 12px 0; line-height: 1.2;
+}
+body { padding-bottom: var(--dc-h); }
+.toast { bottom: calc(28px + var(--dc-h)); }
+.back-top { bottom: calc(22px + var(--dc-h)); }
+@media (max-width: 768px) {
+  .bottom-nav { bottom: calc(var(--dc-h) + env(safe-area-inset-bottom)); padding-bottom: 0; }
+  body { padding-bottom: calc(64px + var(--dc-h) + env(safe-area-inset-bottom)); }
+  .back-top,
+  body:has(.mobile-cart-bar.has-items) .back-top { bottom: calc(76px + var(--dc-h) + env(safe-area-inset-bottom)); }
+  .toast { bottom: calc(80px + var(--dc-h) + env(safe-area-inset-bottom)); }
+}
+/* الكيبورد مفتوح: الشريط السفلي بيختفي، فالحقوق كمان */
+body:has(.bottom-nav.kb) .dev-credit { display: none; }

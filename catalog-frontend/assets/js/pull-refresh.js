@@ -24,7 +24,7 @@
     "#ptr.anim{transition:transform .25s ease,opacity .2s ease}" +
     "#ptr svg{width:22px;height:22px}" +
     "#ptr.spin svg{animation:ptrSpin .8s linear infinite}" +
-    "@keyframes ptrSpin{to{transform:rotate(360deg)}}";
+    "@keyframes ptrSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}";
   document.head.appendChild(css);
 
   var el = document.createElement("div");
@@ -52,7 +52,7 @@
     el.style.opacity = Math.min(1, y / 30);
     el.style.transform = "translateY(" + (y - 40 + (window.visualViewport ? 0 : 0)) + "px)";
     var svg = el.firstChild;
-    if (!refreshing && svg) svg.style.transform = "rotate(" + rotate + "deg)";
+    if (svg) svg.style.transform = refreshing ? "" : "rotate(" + rotate + "deg)";
   }
   function hide() {
     el.classList.add("anim");
@@ -76,6 +76,8 @@
 
   function doRefresh() {
     refreshing = true;
+    var sv = el.firstChild;
+    if (sv) sv.style.transform = ""; /* نشيل زاوية السحب عشان الدوران يبدأ من الصفر */
     el.classList.add("anim", "spin");
     place(HOLD_Y, 0);
     var finished = false;

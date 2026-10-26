@@ -1802,9 +1802,6 @@
         height: 100%;
         object-fit: contain;
       }
-      .modal-gallery-main:hover img.mgm-img.active {
-        transform: scale(1.035);
-      }
       .modal-img-ph {
         display: flex;
         align-items: center;
@@ -1841,11 +1838,11 @@
         position: absolute;
         top: 50%;
         transform: translateY(-50%);
-        width: 34px;
-        height: 34px;
+        width: 38px;
+        height: 38px;
         border-radius: 50%;
         border: none;
-        background: rgba(0, 0, 0, 0.4);
+        background: rgba(0, 0, 0, 0.5);
         color: #fff;
         display: flex;
         align-items: center;
@@ -1856,9 +1853,6 @@
         transition:
           background var(--transition),
           transform var(--transition);
-        opacity: 0;
-      }
-      .modal-gallery-main:hover .gallery-arrow {
         opacity: 1;
       }
       .gallery-arrow:hover {
@@ -1872,7 +1866,7 @@
         left: 10px;
       }
       .gallery-arrow i {
-        font-size: 18px;
+        font-size: 20px;
       }
 
       /* gallery dot indicators */
@@ -5964,6 +5958,9 @@
         qtyStep: 1,
       };
       var _gallerySlideTimer = null;
+      var _galleryToken = 0; /* بيلغي أي تبديل قديم لسه بيتحمّل */
+      var GALLERY_AUTO_MS = 4500; /* مدة الوقوف على كل صورة */
+      var GALLERY_MANUAL_PAUSE_MS = 9000; /* وقفة بعد ما المستخدم يقلّب بنفسه */
       var _galleryState = {
         imgs: [],
         idx: 0,
@@ -5978,8 +5975,7 @@
       // كل صورة بتتحمّل الأول في الخلفية (preload) وبعدين تتعمل لها
       // crossfade بين طبقتين، فمفيش "فلاش" فراغ ولا قفزة مفاجئة.
       function _setGalleryImages(imgs, crossfadeIn) {
-        clearInterval(_gallerySlideTimer);
-        _gallerySlideTimer = null;
+        _galleryStopAuto();
         imgs = (imgs || []).filter(Boolean);
         /* لما بنبدّل مجموعة صور (مثلاً عند تغيير اللون) بنفضّل نكمل من
            نفس طبقة الـ front الحالية عشان الكروسفيد يشتغل صح، بدل ما
@@ -6022,11 +6018,7 @@
            تبديل لون وإحنا شايفين المعرض بالفعل: كروسفيد سلس. */
         _galleryRender(0, !crossfadeIn);
 
-        if (imgs.length > 1) {
-          _gallerySlideTimer = setInterval(function () {
-            if (!_galleryState.paused) _galleryNext();
-          }, 3600); /* إيقاع أهدأ وأكثر احترافية بدل التبديل السريع */
-        }
+        _galleryScheduleAuto(GALLERY_AUTO_MS);
 
         /* وقف مؤقت عند مرور الماوس (ديسكتوب) */
         if (mainWrap && !mainWrap._galleryBound) {
@@ -6057,6 +6049,7 @@
                 else _galleryNext();
               }
               _galleryState.paused = false;
+              _galleryScheduleAuto(GALLERY_MANUAL_PAUSE_MS);
             },
             { passive: true },
           );
@@ -6085,13 +6078,16 @@
         var counterEl = document.getElementById("gallery-counter");
         var backdrop = document.getElementById("gallery-zoom-backdrop");
 
-        var back = _galleryState.front === 0 ? 1 : 0;
-        var layerFront = document.getElementById(
-          "modal-main-img-" + _galleryState.front,
-        );
-        var layerBack = document.getElementById("modal-main-img-" + back);
+        var token = ++_galleryToken;
 
         var apply = function () {
+          /* لو المستخدم ضغط على صورة تانية قبل ما دي تخلص تحميل، نتجاهلها */
+          if (token !== _galleryToken) return;
+          var back = _galleryState.front === 0 ? 1 : 0;
+          var layerFront = document.getElementById(
+            "modal-main-img-" + _galleryState.front,
+          );
+          var layerBack = document.getElementById("modal-main-img-" + back);
           if (layerBack) {
             layerBack.removeAttribute("data-gx");
             layerBack.style.display = "";
@@ -6108,6 +6104,10 @@
 
         if (skipFade) {
           _preload(src, function () {
+            if (token !== _galleryToken) return;
+            var layerFront = document.getElementById(
+              "modal-main-img-" + _galleryState.front,
+            );
             if (layerFront) {
               layerFront.removeAttribute("data-gx");
               layerFront.style.display = "";
@@ -6132,14 +6132,47 @@
         });
       }
 
+      /* التبديل اليدوي (أسهم / نقط / مصغّرات / سحب) بيوقف التلقائي شوية */
       function _galleryNext() {
         _galleryRender(_galleryState.idx + 1);
+        _galleryScheduleAuto(GALLERY_MANUAL_PAUSE_MS);
       }
       function _galleryPrev() {
         _galleryRender(_galleryState.idx - 1);
+        _galleryScheduleAuto(GALLERY_MANUAL_PAUSE_MS);
       }
       function _galleryGoTo(i) {
         _galleryRender(i);
+        _galleryScheduleAuto(GALLERY_MANUAL_PAUSE_MS);
+      }
+
+      /* التبديل التلقائي: setTimeout متسلسل (مش setInterval) —
+         الصورة الجاية بتتحمّل الأول وبعدين نبدّل، فمفيش تضارب لو النت بطيء */
+      function _galleryStopAuto() {
+        clearTimeout(_gallerySlideTimer);
+        _gallerySlideTimer = null;
+      }
+      function _galleryScheduleAuto(delay) {
+        _galleryStopAuto();
+        var st = _galleryState;
+        if (!st || !st.imgs || st.imgs.length < 2) return;
+        _gallerySlideTimer = setTimeout(function () {
+          _gallerySlideTimer = null;
+          if (st !== _galleryState) return; /* المعرض اتغيّر */
+          var busy =
+            st.paused ||
+            document.hidden ||
+            document.querySelector(".mx-lb.open");
+          if (busy) return _galleryScheduleAuto(1200);
+          var nextIdx = (st.idx + 1) % st.imgs.length;
+          var from = st.idx;
+          _preload(st.imgs[nextIdx], function () {
+            if (st !== _galleryState || st.idx !== from) return;
+            if (st.paused || document.hidden) return _galleryScheduleAuto(1200);
+            _galleryRender(nextIdx);
+            _galleryScheduleAuto(GALLERY_AUTO_MS);
+          });
+        }, delay);
       }
 
       // ═══════════════════════════════════════════════════════
@@ -6495,8 +6528,8 @@
 
       var _drawerCloseTimer = null;
       function closeDrawer() {
-        clearInterval(_gallerySlideTimer);
-        _gallerySlideTimer = null;
+        _galleryStopAuto();
+        _galleryToken++;
         var backdrop = document.getElementById("drawer-backdrop");
         var drawer = document.getElementById("item-drawer");
         backdrop.classList.remove("open");

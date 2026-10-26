@@ -711,6 +711,46 @@
       .drawer.open {
         transform: translateX(0);
       }
+      /* مقفول = مخفي تمامًا (مفيش ظل بيتسرّب على حافة الشاشة ولا طبقة فاضية) */
+      .drawer {
+        visibility: hidden;
+        box-shadow: none;
+        background: var(--surface, #fff);
+        transition:
+          transform 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+          visibility 0s linear 0.32s,
+          box-shadow 0s linear 0.32s;
+      }
+      .drawer.open {
+        visibility: visible;
+        box-shadow: 6px 0 40px rgba(13, 21, 38, 0.18);
+        transition:
+          transform 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+          visibility 0s,
+          box-shadow 0s;
+      }
+      /* يثبّت عرض الصفحة: اختفاء/ظهور السكرول بار مايحرّكش المحتوى */
+      html {
+        scrollbar-gutter: stable;
+      }
+      @media (max-width: 768px) {
+        /* blur + opacity transition + طبقة بـ overflow/radius = سبب معروف
+           لرسم الشاشة شفافة على بعض أجهزة أندرويد */
+        .drawer-backdrop {
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
+          background: rgba(0, 0, 0, 0.5);
+        }
+        .drawer {
+          -webkit-backface-visibility: hidden;
+          backface-visibility: hidden;
+          overscroll-behavior: contain;
+        }
+        .drawer-body {
+          overscroll-behavior: contain;
+          -webkit-overflow-scrolling: touch;
+        }
+      }
       .drawer-header {
         display: flex;
         align-items: center;
@@ -6375,7 +6415,9 @@
           "</div></div>";
 
         document.getElementById("drawer-header-left").innerHTML = headerLeft;
-        document.getElementById("drawer-body").innerHTML = bodyHtml;
+        var _db = document.getElementById("drawer-body");
+        _db.innerHTML = bodyHtml;
+        _db.scrollTop = 0; /* كل صنف يفتح من أول الصفحة مش من مكان الصنف اللي فات */
 
         // ── ربط زرار "أضف للسلة" بمعالج حقيقي (مش onclick inline) ──
         // بيتم الربط من جديد في كل مرة يتفتح فيها الـ drawer، لأن
@@ -6413,10 +6455,18 @@
         // open animation
         var backdrop = document.getElementById("drawer-backdrop");
         var drawer = document.getElementById("item-drawer");
+        /* لو كان في قفل لسه معلّق (تايمر 320ms) نلغيه عشان مايخفيش الخلفية
+           ويرجّع السكرول بعد ما الشاشة الجديدة فتحت */
+        clearTimeout(_drawerCloseTimer);
+        /* نمسح أي ستايل متبقّي من سحب اللمس */
+        drawer.style.transition = "";
+        drawer.style.transform = "";
         backdrop.style.display = "block";
+        void drawer.offsetWidth; /* reflow: يضمن إن الأنيميشن يبدأ من الحالة المقفولة */
         requestAnimationFrame(function () {
           backdrop.classList.add("open");
           drawer.classList.add("open");
+          _db.scrollTop = 0;
         });
         document.body.style.overflow = "hidden";
       }
@@ -6442,6 +6492,7 @@
         );
       }
 
+      var _drawerCloseTimer = null;
       function closeDrawer() {
         clearInterval(_gallerySlideTimer);
         _gallerySlideTimer = null;
@@ -6449,7 +6500,8 @@
         var drawer = document.getElementById("item-drawer");
         backdrop.classList.remove("open");
         drawer.classList.remove("open");
-        setTimeout(function () {
+        clearTimeout(_drawerCloseTimer);
+        _drawerCloseTimer = setTimeout(function () {
           backdrop.style.display = "none";
           document.body.style.overflow = "";
         }, 320);

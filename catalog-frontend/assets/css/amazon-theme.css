@@ -1331,7 +1331,7 @@ img, a { -webkit-user-drag: none; user-drag: none; -webkit-touch-callout: none; 
 
 
 /* ── شريط حقوق المطوّر: ثابت أسفل الشاشة دايماً ── */
-:root { --dc-h: 28px; }
+:root { --dc-h: 38px; }
 .dev-credit {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 510;
   box-sizing: border-box; height: calc(var(--dc-h) + env(safe-area-inset-bottom));
@@ -1349,3 +1349,35 @@ body { padding-bottom: var(--dc-h); }
 }
 /* الكيبورد مفتوح: الشريط السفلي بيختفي، فالحقوق كمان */
 body:has(.bottom-nav.kb) .dev-credit { display: none; }
+
+/* ── تصميم شريط المطوّر (ملفت): خلفية داكنة + خط ذهبي + أيقونة لينكد إن ── */
+.dev-credit {
+  display: flex; align-items: flex-start; justify-content: center; gap: 10px;
+  background: linear-gradient(90deg, #0b1220, #16233b 50%, #0b1220);
+  border-top: 2px solid #ff9900; color: #c9d3e3;
+  box-shadow: 0 -6px 20px rgba(0,0,0,.28);
+  font-size: 12.5px; padding-top: 7px; position: fixed; overflow: hidden;
+}
+.dev-credit::before {
+  content: ""; position: absolute; top: 0; bottom: 0; width: 80px; left: -100px;
+  background: linear-gradient(100deg, transparent, rgba(255,153,0,.28), transparent);
+  animation: dcShine 5s ease-in-out infinite; pointer-events: none;
+}
+@keyframes dcShine { 0%, 55% { left: -100px; } 100% { left: 110%; } }
+.dev-credit .dc-label { opacity: .75; letter-spacing: .4px; line-height: 24px; }
+.dev-credit .dc-link {
+  display: inline-flex; align-items: center; gap: 7px; height: 24px; padding: 0 12px 0 4px;
+  border-radius: 999px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16);
+  color: #fff; font-weight: 700; text-decoration: none; position: relative;
+  transition: background .2s, transform .2s, border-color .2s;
+}
+.dev-credit .dc-link:hover, .dev-credit .dc-link:focus-visible {
+  background: rgba(10,102,194,.28); border-color: #0a66c2; transform: translateY(-1px); text-decoration: none;
+}
+.dev-credit .dc-in {
+  width: 20px; height: 20px; padding: 3px; box-sizing: border-box; border-radius: 50%;
+  background: #0a66c2; color: #fff; flex: 0 0 auto; box-shadow: 0 0 0 0 rgba(10,102,194,.7);
+  animation: dcPulse 2.4s ease-out infinite;
+}
+@keyframes dcPulse { 0% { box-shadow: 0 0 0 0 rgba(10,102,194,.65); } 70%, 100% { box-shadow: 0 0 0 7px rgba(10,102,194,0); } }
+@media (prefers-reduced-motion: reduce) { .dev-credit::before, .dev-credit .dc-in { animation: none; } }

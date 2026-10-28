@@ -90,7 +90,7 @@ var _ALLOWED_REMOTE_FNS = [
   'getCatalogPublicData', 'logPublicCatalogWhatsapp', 'resolveLinkedCatalog',
   'resolveLinkedCatalogFull',
   'adminLogin', 'adminGetData',
-  'adminSaveItem', 'adminDeleteItem',
+  'adminSaveItem', 'adminDeleteItem', 'adminImportItems',
   'adminSaveGroup', 'adminDeleteGroup',
   'adminGetSettings', 'adminSaveSettings', 'adminChangePassword',
   'adminListLinks', 'adminCreateLink', 'adminSetLinkActive', 'adminDeleteLink',
@@ -104,7 +104,7 @@ var _ALLOWED_REMOTE_FNS = [
 //  (إعادة محاولة من الشبكة/البروكسي أو دوسة مكررة) مش بننفّذ العملية من
 //  جديد: لو الأولى خلصت بنرجّع نفس نتيجتها، ولو لسه شغالة بنستناها.
 var _WRITE_FNS = [
-  'adminSaveItem', 'adminDeleteItem', 'adminSaveGroup', 'adminDeleteGroup',
+  'adminSaveItem', 'adminDeleteItem', 'adminImportItems', 'adminSaveGroup', 'adminDeleteGroup',
   'adminSaveSettings', 'adminChangePassword', 'adminBulkUpdate', 'adminReorderGroups',
   'adminUploadImage', 'adminCreateLink', 'adminSetLinkActive', 'adminDeleteLink',
   'logPublicCatalogWhatsapp', 'pushSubscribe', 'pushUnsubscribe', 'adminPushRecord',
@@ -781,7 +781,7 @@ function adminSaveItem(password, item) {
       // تحقق من تكرار الكود (باستثناء نفس الصف وقت التعديل)
       for (var c = 1; c < values.length; c++) {
         if (
-          String(values[c][codeIdx]).trim() === String(item.code).trim() &&
+          String(values[c][codeIdx]).trim().toLowerCase() === String(item.code).trim().toLowerCase() &&
           String(values[c][idIdx]) !== String(item.id || '')
         ) {
           throw new Error('الكود "' + item.code + '" مستخدم في صنف تاني');
@@ -852,6 +852,123 @@ function adminSaveItem(password, item) {
         sh.appendRow(newRow);
         return { success: true, id: newId };
       }
+    } finally {
+      lock.releaseLock();
+      _clearPublicCatalogCache();
+    }
+  } catch (err) {
+    return { success: false, message: err.message };
+  }
+}
+
+// ── استيراد أصناف من Excel (إضافة/تحديث بالكود) ────────────────
+//  الفرونت بيقرا الملف ويبعت الصفوف على دفعات (≤ 200). الصنف بيتعرّف من الكود
+//  (بدون حساسية لحالة الحروف): موجود → تحديث الحقول المبعوتة بس (الحقل اللي
+//  مش مبعوت بيفضل زي ما هو)، مش موجود → صنف جديد. بنكتب الشيت بنداء setValues واحد.
+var _IMPORT_TEXT = ['name', 'description', 'tiers', 'sizes', 'image_url'];
+var _IMPORT_NUM = ['selling_price', 'old_price', 'pub_qty', 'min_qty', 'min_order_qty', 'qty_step'];
+var _IMPORT_BOOL = ['active', 'featured'];
+
+function _importCoerce(f, v) {
+  if (_IMPORT_NUM.indexOf(f) !== -1) {
+    var n = Number(v);
+    if (isNaN(n) || n < 0) throw new Error('قيمة "' + f + '" لازم تكون رقم صحيح');
+    return n;
+  }
+  if (_IMPORT_BOOL.indexOf(f) !== -1) return v === true || v === 'true' || v === 1 || v === '1';
+  if (f === 'unit') {
+    var u = String(v).trim();
+    if (u !== 'قطعة' && u !== 'ثري') throw new Error('الوحدة لازم تكون قطعة أو ثري');
+    return u;
+  }
+  if (f === 'tiers') return String(v).replace(/\s+/g, '').replace(/،/g, ',');
+  if (f === 'sizes') return String(v).split(/[,،\s]+/).filter(Boolean).join(',');
+  return String(v).trim();
+}
+
+function adminImportItems(password, rows) {
+  try {
+    if (!_adminCheckPassword(password)) return { success: false, message: 'غير مصرح' };
+    if (!Array.isArray(rows) || !rows.length) return { success: false, message: 'مفيش صفوف للاستيراد' };
+    if (rows.length > 200) return { success: false, message: 'الحد الأقصى ٢٠٠ صنف في الدفعة الواحدة' };
+
+    var lock = LockService.getScriptLock();
+    lock.waitLock(15000);
+    try {
+      var sh = _sheet(SHEET_ITEMS);
+      var values = sh.getDataRange().getValues();
+      var headers = values[0].map(function (h) { return String(h).trim(); });
+      var codeIdx = headers.indexOf('code');
+      var idIdx = headers.indexOf('id');
+      if (codeIdx === -1 || idIdx === -1) throw new Error('تاب Items لازم يكون فيه عمودين id و code');
+
+      function colOf(name) {
+        var i = headers.indexOf(name);
+        if (i !== -1) return i;
+        headers.push(name);
+        values[0].push(name);
+        for (var r = 1; r < values.length; r++) values[r].push('');
+        return headers.length - 1;
+      }
+
+      var byCode = {};
+      for (var r = 1; r < values.length; r++) {
+        var c = String(values[r][codeIdx]).trim().toLowerCase();
+        if (c && byCode[c] === undefined) byCode[c] = r;
+      }
+
+      var fields = _IMPORT_TEXT.concat(_IMPORT_NUM, _IMPORT_BOOL, ['unit', 'group_id']);
+      var seen = {};
+      var created = 0, updated = 0, errors = [];
+
+      rows.forEach(function (row, i) {
+        var rowNo = row && row._row ? row._row : i + 1;
+        var code = row && row.code != null ? String(row.code).trim() : '';
+        try {
+          if (!code) throw new Error('الكود فاضي');
+          var key = code.toLowerCase();
+          if (seen[key]) throw new Error('الكود مكرر في نفس الدفعة');
+          seen[key] = true;
+
+          var vals = {};
+          fields.forEach(function (f) {
+            if (row.hasOwnProperty(f) && row[f] !== null && row[f] !== undefined && row[f] !== '') {
+              vals[f] = f === 'group_id' ? String(row[f]) : _importCoerce(f, row[f]);
+            }
+          });
+
+          var rIdx = byCode[key];
+          var isNew = rIdx === undefined;
+          if (isNew && !vals.name) throw new Error('الاسم مطلوب للصنف الجديد');
+
+          // قاعدة السعر الأصلي على القيم النهائية بعد الدمج (زي شاشة الصنف)
+          var spCol = headers.indexOf('selling_price');
+          var opCol = headers.indexOf('old_price');
+          var sp = vals.selling_price !== undefined ? vals.selling_price : (!isNew && spCol !== -1 ? Number(values[rIdx][spCol]) || 0 : 0);
+          var op = vals.old_price !== undefined ? vals.old_price : (!isNew && opCol !== -1 ? Number(values[rIdx][opCol]) || 0 : 0);
+          if (op > 0 && op <= sp) throw new Error('السعر الأصلي لازم يكون أكبر من سعر البيع');
+
+          if (isNew) {
+            var newRow = headers.map(function () { return ''; });
+            values.push(newRow);
+            rIdx = values.length - 1;
+            byCode[key] = rIdx;
+            values[rIdx][idIdx] = Utilities.getUuid();
+            values[rIdx][codeIdx] = code;
+            values[rIdx][colOf('created_at')] = new Date().toISOString();
+            if (vals.active === undefined) vals.active = true;
+          }
+          Object.keys(vals).forEach(function (f) { values[rIdx][colOf(f)] = vals[f]; });
+          if (isNew) created++; else updated++;
+        } catch (e) {
+          errors.push({ row: rowNo, code: code, message: e.message });
+        }
+      });
+
+      if (created + updated > 0) {
+        sh.getRange(1, 1, values.length, headers.length).setValues(values);
+      }
+      return { success: true, created: created, updated: updated, errors: errors };
     } finally {
       lock.releaseLock();
       _clearPublicCatalogCache();

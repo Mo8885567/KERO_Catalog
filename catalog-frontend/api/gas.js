@@ -48,7 +48,7 @@ const ALLOWED_FNS = new Set([
   'getCatalogPublicData', 'logPublicCatalogWhatsapp', 'resolveLinkedCatalog',
   'resolveLinkedCatalogFull',
   'adminLogin', 'adminGetData',
-  'adminSaveItem', 'adminDeleteItem',
+  'adminSaveItem', 'adminDeleteItem', 'adminImportItems',
   'adminSaveGroup', 'adminDeleteGroup',
   'adminGetSettings', 'adminSaveSettings', 'adminChangePassword',
   'adminListLinks', 'adminCreateLink', 'adminSetLinkActive', 'adminDeleteLink',
@@ -171,7 +171,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // يعني لو المحاولة الأولى نجحت فعلًا والرد ضاع، التانية بترجّع نفس النتيجة.
 // (adminCreateLink / adminUploadImage / adminChangePassword مش هنا عن قصد)
 const SAFE_RETRY_WRITES = new Set([
-  'adminSaveItem', 'adminDeleteItem', 'adminSaveGroup', 'adminDeleteGroup',
+  'adminSaveItem', 'adminDeleteItem', 'adminImportItems', 'adminSaveGroup', 'adminDeleteGroup',
   'adminSaveSettings', 'adminBulkUpdate', 'adminReorderGroups',
   'adminSetLinkActive', 'adminDeleteLink', 'adminLogout', 'adminPushRecord',
   'pushSubscribe', 'pushUnsubscribe', 'logPublicCatalogWhatsapp',

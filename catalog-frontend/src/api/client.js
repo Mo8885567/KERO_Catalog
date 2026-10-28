@@ -49,7 +49,7 @@
   // كتابات آمنة نعيد إرسالها بنفس الـ rid لو فشلت الشبكة نفسها (الباكيند بيمنع
   // التنفيذ المزدوج). لازم تتطابق مع SAFE_RETRY_WRITES في api/gas.js.
   var SAFE_RETRY_WRITES = {
-    adminSaveItem: true, adminDeleteItem: true, adminSaveGroup: true, adminDeleteGroup: true,
+    adminSaveItem: true, adminDeleteItem: true, adminImportItems: true, adminSaveGroup: true, adminDeleteGroup: true,
     adminSaveSettings: true, adminBulkUpdate: true, adminReorderGroups: true,
     adminSetLinkActive: true, adminDeleteLink: true,
   };
@@ -271,7 +271,7 @@
       'getCatalogPublicData', 'logPublicCatalogWhatsapp',
       // ── لوحة الإدارة (/admin) ──
       'adminLogin', 'adminGetData',
-      'adminSaveItem', 'adminDeleteItem',
+      'adminSaveItem', 'adminDeleteItem', 'adminImportItems',
       'adminSaveGroup', 'adminDeleteGroup',
       'adminGetSettings', 'adminSaveSettings', 'adminChangePassword',
       'adminLogout', 'adminBulkUpdate', 'adminReorderGroups', 'adminUploadImage', 'adminGetOrders',

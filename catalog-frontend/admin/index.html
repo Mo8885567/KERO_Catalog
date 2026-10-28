@@ -1191,6 +1191,27 @@ tbody tr.off {
 }
 
 /* ===== المودال ===== */
+
+/* ===== استيراد / تصدير Excel ===== */
+.page-head-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.imp-drop { border: 2px dashed var(--border2); border-radius: 10px; padding: 26px 14px; text-align: center; cursor: pointer; background: var(--surface2); color: var(--text2); }
+.imp-drop:hover, .imp-drop.drag { border-color: var(--accent); }
+.imp-drop b { display: block; color: var(--text); margin-bottom: 4px; }
+.imp-help { font-size: 13px; color: var(--text2); line-height: 1.9; margin-top: 12px; }
+.imp-help li { margin-inline-start: 18px; }
+.imp-sum { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 12px; }
+.imp-chip { padding: 4px 12px; border-radius: 99px; font-size: 13px; font-weight: 600; background: var(--surface2); border: 1px solid var(--border); }
+.imp-chip.new { color: var(--success); background: var(--success-soft); }
+.imp-chip.upd { color: var(--link); background: var(--info-soft); }
+.imp-chip.err { color: var(--danger); background: var(--danger-soft); }
+.imp-table-wrap { max-height: 320px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+.imp-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.imp-table th, .imp-table td { padding: 6px 10px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.imp-table th { background: var(--surface2); position: sticky; top: 0; }
+.imp-table td.msg { white-space: normal; }
+.imp-table .st-err { color: var(--danger); }
+.imp-table .st-new { color: var(--success); }
+.imp-table .st-upd { color: var(--link); }
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -1835,7 +1856,11 @@ html[data-theme="dark"] .toast.err {
               <h2>الأصناف</h2>
               <p id="itemsSub"></p>
             </div>
-            <button class="btn btn-primary" onclick="openItemModal()"><i class="ti ti-plus"></i> صنف جديد</button>
+            <div class="page-head-actions">
+              <button class="btn" onclick="exportItemsXlsx(this)" title="تنزيل كل الأصناف في ملف Excel"><i class="ti ti-upload" style="transform: scaleY(-1)"></i> تصدير Excel</button>
+              <button class="btn" onclick="openImportModal()" title="إضافة / تحديث أصناف من ملف Excel"><i class="ti ti-upload"></i> استيراد Excel</button>
+              <button class="btn btn-primary" onclick="openItemModal()"><i class="ti ti-plus"></i> صنف جديد</button>
+            </div>
           </div>
           <div class="toolbar">
             <input class="search-input" id="itemsSearch" placeholder="بحث بالكود أو الاسم..." oninput="onItemsSearch()" aria-label="بحث في الأصناف" />
@@ -2180,6 +2205,44 @@ html[data-theme="dark"] .toast.err {
       </div>
     </div>
 
+    <!-- ===== مودال استيراد Excel ===== -->
+    <div class="modal-overlay" id="importModal">
+      <div class="modal-box" style="max-width: 760px" role="dialog" aria-modal="true" aria-labelledby="importModalTitle">
+        <div class="modal-head">
+          <h2><i class="ti ti-upload"></i> <span id="importModalTitle">استيراد أصناف من Excel</span></h2>
+          <button class="icon-btn" onclick="closeImportModal()" aria-label="إغلاق"><i class="ti ti-x"></i></button>
+        </div>
+        <div class="modal-body">
+          <div id="impStepPick">
+            <div class="imp-drop" id="impDrop" onclick="$('impFile').click()">
+              <b>اسحب ملف Excel هنا أو اضغط للاختيار</b>
+              <span>.xlsx / .xls / .csv</span>
+            </div>
+            <input type="file" id="impFile" accept=".xlsx,.xls,.csv" hidden />
+            <ul class="imp-help">
+              <li>الصنف بيتعرّف من <b>الكود</b>: لو الكود موجود في الكتالوج بيتحدّث، ولو جديد بيتضاف.</li>
+              <li>الخلية <b>الفاضية</b> معناها «سيبه زي ما هو». لو عايز تمسح سعر أصلي اكتب <b>0</b>.</li>
+              <li>اسم المجموعة لازم يكون مطابق لاسم موجود عندك في شاشة المجموعات.</li>
+              <li>الصور والألوان بتتعدّل من شاشة الصنف نفسها (مش من Excel).</li>
+              <li>أسهل طريقة: صدّر الأصناف الأول، عدّل في الملف، وارجع ارفعه.</li>
+            </ul>
+            <button class="btn btn-sm" type="button" onclick="downloadImportTemplate()"><i class="ti ti-upload" style="transform: scaleY(-1)"></i> تنزيل نموذج فاضي</button>
+          </div>
+          <div id="impStepPreview" hidden>
+            <div class="imp-sum" id="impSummary"></div>
+            <div class="imp-table-wrap"><table class="imp-table"><thead><tr><th>سطر</th><th>الكود</th><th>الاسم</th><th>الحالة</th></tr></thead><tbody id="impRows"></tbody></table></div>
+            <div class="imp-help" id="impNote"></div>
+            <div class="field-error" id="impError" role="alert"></div>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn" id="impCancelBtn" onclick="closeImportModal()">إلغاء</button>
+          <button class="btn" id="impBackBtn" onclick="importBackToPick()" hidden>اختيار ملف تاني</button>
+          <button class="btn btn-primary" id="impGoBtn" onclick="runImport()" hidden><i class="ti ti-check"></i> <span id="impGoLabel">استيراد</span></button>
+        </div>
+      </div>
+    </div>
+
     <!-- ===== مودال المجموعة ===== -->
     <div class="modal-overlay" id="groupModal">
       <div class="modal-box" style="max-width: 420px" role="dialog" aria-modal="true" aria-labelledby="groupModalTitle">
@@ -2349,6 +2412,38 @@ function fromLocalInput(v) {
 
 // نداء موحّد للباكيند بصيغة Promise. لو التوكن انتهى → رجوع لشاشة الدخول.
 var READ_FNS = { adminGetData: 1, adminGetSettings: 1, adminGetOrders: 1, adminPushStats: 1, adminLogin: 1, getCatalogPublicData: 1 };
+// ===== رسائل خطأ واضحة: بنحوّل رسائل جوجل الإنجليزي لسبب عربي مفهوم =====
+var FRIENDLY_ERRORS = [
+  [/do not have permission to access the requested document|ليس لديك إذن للدخول إلى المستند/i,
+   "جوجل رفضت الكتابة على الشيت. أشهر سبب: مساحة حساب Google ممتلئة (Drive / Photos / Gmail) — افتح one.google.com/storage وفضّي مساحة. السبب التاني: الحساب اللي ناشر الـ Apps Script مالوش صلاحية تعديل على الشيت."],
+  [/Authorization is required|needs permission|يلزم التفويض/i,
+   "الـ Apps Script محتاج موافقة على الصلاحيات: افتحه، شغّل أي دالة ووافق (Allow)، وبعدين انشر «إصدار جديد»."],
+  [/Service invoked too many times|Too many simultaneous|rate limit|quota/i,
+   "جوجل بتحدّ الطلبات المتتالية دلوقتي — استنى دقيقة وجرّب تاني."],
+  [/Exceeded maximum execution time/i,
+   "العملية خدت وقت أطول من المسموح. راجع القائمة (ممكن تكون اتحفظت) قبل ما تحاول تاني."],
+  [/Lock timeout|Could not obtain lock|waitLock/i,
+   "فيه عملية حفظ تانية شغالة دلوقتي — استنى ثواني وجرّب تاني."],
+  [/number of cells in the workbook|above the limit/i,
+   "الشيت وصل لأقصى عدد خلايا مسموح بيه في جوجل (10 مليون خلية)."],
+  [/Service Spreadsheets failed|Service error: Spreadsheets/i,
+   "خدمة جداول جوجل مش متاحة لحظيًا — جرّب بعد شوية."],
+  [/Unknown or disallowed function/i,
+   "الفرونت بيطلب دالة مش موجودة في نسخة الـ Apps Script المنشورة — انشر «إصدار جديد» من Code.gs."],
+  [/Failed to fetch|NetworkError|Load failed/i,
+   "مفيش اتصال بالسيرفر — اتأكد من الإنترنت وجرّب تاني."],
+];
+function friendlyError(msg) {
+  var m = String(msg == null ? "" : msg);
+  for (var i = 0; i < FRIENDLY_ERRORS.length; i++) {
+    if (FRIENDLY_ERRORS[i][0].test(m)) {
+      try { console.warn("[admin] الرسالة الأصلية:", m); } catch (e) {}
+      return FRIENDLY_ERRORS[i][1];
+    }
+  }
+  return m;
+}
+
 function api(fn) {
   var args = Array.prototype.slice.call(arguments, 1);
   var isWrite = !READ_FNS[fn];
@@ -2365,6 +2460,7 @@ function api(fn) {
         if (res && res.success === false && res.message === "غير مصرح" && PW) {
           forceLogin("الجلسة انتهت، سجّل دخولك تاني");
         }
+        if (res && res.success === false && res.message) res.message = friendlyError(res.message);
         resolve(res);
       })
       .withFailureHandler(function (err) {
@@ -2374,7 +2470,9 @@ function api(fn) {
           err = new Error("السيرفر اتأخر في الرد. الحفظ ممكن يكون تم — راجع القائمة قبل ما تحاول تاني");
           if (isWrite) setTimeout(function () { loadData(false); }, 500);
         }
-        reject(err instanceof Error ? err : new Error(String(err)));
+        err = err instanceof Error ? err : new Error(String(err));
+        err.message = friendlyError(err.message);
+        reject(err);
       })
       [fn].apply(null, args);
   });
@@ -3728,7 +3826,8 @@ function openItemModal(id, duplicate) {
 
   if (it) {
     $("itemModalTitle").textContent = duplicate ? "نسخ صنف" : "تعديل صنف";
-    $("f_code").value = duplicate ? "" : it.code || "";
+    // عند النسخ بنسيب الكود زي ما هو (وبيتحدد كله عشان تكتب فوقه كود جديد) — والحفظ بيرفض الكود المكرر
+    $("f_code").value = it.code || "";
     $("f_name").value = it.name || "";
     $("f_description").value = it.description || "";
     groupSel.value = it.group_id || "";
@@ -3761,7 +3860,9 @@ function openItemModal(id, duplicate) {
   $("itemModal").classList.add("show");
   document.querySelector("#itemModal .modal-box").scrollTop = 0;
   setTimeout(function () {
-    $(duplicate ? "f_code" : "f_name").focus();
+    var focusEl = $(duplicate ? "f_code" : "f_name");
+    focusEl.focus();
+    if (duplicate && focusEl.select) focusEl.select();
   }, 30);
 }
 async function closeItemModal(force) {
@@ -3924,6 +4025,372 @@ function updatePreview() {
   $("priceBadge").textContent = "راجع الأسعار";
 }
 
+// ===== تصدير / استيراد Excel =====
+// أعمدة الملف. العناوين العربي هي اللي بتتكتب في التصدير، والاستيراد بيقبل العربي أو الإنجليزي.
+var XL_COLS = [
+  { k: "code", ar: "الكود", w: 14, al: ["code", "كودالصنف"] },
+  { k: "name", ar: "الاسم", w: 28, al: ["name", "اسمالصنف"] },
+  { k: "description", ar: "الوصف", w: 36, al: ["description", "desc"] },
+  { k: "group", ar: "المجموعة", w: 16, al: ["group", "groupname", "القسم", "المجموعه"] },
+  { k: "unit", ar: "الوحدة", w: 10, al: ["unit", "الوحده"] },
+  { k: "selling_price", ar: "سعر البيع", w: 12, al: ["sellingprice", "price", "السعر"] },
+  { k: "old_price", ar: "السعر الأصلي", w: 13, al: ["oldprice", "السعرالاصلي", "السعرقبلالخصم"] },
+  { k: "tiers", ar: "شرائح الأسعار", w: 18, al: ["tiers", "الشرائح"] },
+  { k: "pub_qty", ar: "الكمية المعروضة", w: 15, al: ["pubqty", "qty", "الكمية"] },
+  { k: "min_qty", ar: "الحد الأدنى", w: 12, al: ["minqty", "الحدالادنى"] },
+  { k: "min_order_qty", ar: "أقل كمية للطلب", w: 15, al: ["minorderqty", "اقلكميهللطلب"] },
+  { k: "qty_step", ar: "مضاعف الكمية", w: 14, al: ["qtystep", "مضاعفالكميه"] },
+  { k: "sizes", ar: "المقاسات", w: 18, al: ["sizes", "المقاسات"] },
+  { k: "image_url", ar: "رابط الصورة", w: 40, al: ["imageurl", "image", "الصورة", "رابطالصوره"] },
+  { k: "active", ar: "فعّال", w: 9, al: ["active", "فعال", "الحالة", "الحاله"] },
+  { k: "featured", ar: "مميّز", w: 9, al: ["featured", "مميز"] },
+];
+var XL_NUM = { selling_price: 1, old_price: 1, pub_qty: 1, min_qty: 1, min_order_qty: 1, qty_step: 1 };
+var XL_BOOL = { active: 1, featured: 1 };
+
+function xlNorm(h) {
+  return String(h == null ? "" : h)
+    .replace(/[ً-ٟـ*]/g, "")
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ة/g, "ه")
+    .replace(/[\s_\-.:]+/g, "")
+    .toLowerCase();
+}
+var _XL_HEADER_MAP = null;
+function xlHeaderMap() {
+  if (_XL_HEADER_MAP) return _XL_HEADER_MAP;
+  var m = {};
+  XL_COLS.forEach(function (c) {
+    [c.ar, c.k].concat(c.al || []).forEach(function (a) {
+      m[xlNorm(a)] = c.k;
+    });
+  });
+  _XL_HEADER_MAP = m;
+  return m;
+}
+function xlLabel(k) {
+  var c = XL_COLS.filter(function (x) { return x.k === k; })[0];
+  return c ? c.ar : k;
+}
+function xlToNum(v) {
+  if (typeof v === "number") return v;
+  var t = String(v)
+    .replace(/[٠-٩]/g, function (d) { return String(d.charCodeAt(0) - 1632); })
+    .replace(/٫/g, ".")
+    .replace(/[,،\s]/g, "")
+    .replace(/(ج\.?م\.?|جنيه|egp)$/i, "");
+  if (t === "") return NaN;
+  return Number(t);
+}
+function xlToBool(v) {
+  if (typeof v === "boolean") return v;
+  var t = String(v).trim().toLowerCase();
+  if (/^(نعم|ايوه|أيوه|اه|yes|y|true|1|فعال|فعّال|مفعل|مفعّل|مميز|مميّز)$/.test(t)) return true;
+  if (/^(لا|لأ|no|n|false|0|موقوف|متوقف|غير فعال|غير مميز)$/.test(t)) return false;
+  return null;
+}
+
+// بتحوّل مصفوفة صفوف (أول صف = العناوين) لقايمة أصناف جاهزة للمعاينة والإرسال.
+// ctx = { items: [...], groups: [...] } — بنمررهم عشان الدالة تفضل نقية وقابلة للاختبار.
+function xlBuildPlan(aoa, ctx) {
+  var plan = { rows: [], unknownHeaders: [], error: "" };
+  if (!aoa || !aoa.length) { plan.error = "الملف فاضي"; return plan; }
+  var hmap = xlHeaderMap();
+  var headerRow = aoa[0] || [];
+  var colKeys = [];
+  headerRow.forEach(function (h, i) {
+    var key = hmap[xlNorm(h)];
+    if (key) colKeys[i] = key;
+    else if (String(h == null ? "" : h).trim()) plan.unknownHeaders.push(String(h).trim());
+  });
+  if (colKeys.indexOf("code") === -1) { plan.error = "مفيش عمود «الكود» في الملف — الصف الأول لازم يكون عناوين الأعمدة"; return plan; }
+
+  var existingByCode = {};
+  (ctx.items || []).forEach(function (it) {
+    var c = String(it.code == null ? "" : it.code).trim().toLowerCase();
+    if (c && !existingByCode[c]) existingByCode[c] = it;
+  });
+  var groupByName = {};
+  (ctx.groups || []).forEach(function (g) { groupByName[String(g.name || "").trim().toLowerCase()] = g; });
+  var seen = {};
+
+  for (var r = 1; r < aoa.length; r++) {
+    var line = aoa[r] || [];
+    var empty = true;
+    for (var q = 0; q < line.length; q++) if (line[q] !== "" && line[q] != null) { empty = false; break; }
+    if (empty) continue;
+
+    var row = { _row: r + 1 }; // رقم السطر زي ما بيظهر في Excel
+    var errs = [];
+    colKeys.forEach(function (key, i) {
+      if (!key) return;
+      var v = line[i];
+      if (v === "" || v == null) return; // فاضي = سيبه زي ما هو
+      if (typeof v === "string") v = v.trim();
+      if (v === "") return;
+      if (XL_NUM[key]) {
+        var n = xlToNum(v);
+        if (isNaN(n) || n < 0) { errs.push("«" + xlLabel(key) + "»: رقم غير صحيح (" + v + ")"); return; }
+        row[key] = n;
+      } else if (XL_BOOL[key]) {
+        var b = xlToBool(v);
+        if (b === null) { errs.push("«" + xlLabel(key) + "»: اكتب نعم أو لا"); return; }
+        row[key] = b;
+      } else if (key === "group") {
+        var g = groupByName[String(v).trim().toLowerCase()];
+        if (!g) { errs.push("المجموعة «" + v + "» مش موجودة"); return; }
+        row.group_id = String(g.id);
+        row._groupName = g.name;
+      } else if (key === "unit") {
+        var u = String(v).trim();
+        if (u !== "قطعة" && u !== "ثري") { errs.push("«الوحدة» لازم تكون قطعة أو ثري"); return; }
+        row.unit = u;
+      } else if (key === "sizes") {
+        row.sizes = String(v).split(/[,،\s]+/).filter(Boolean).join(",");
+      } else if (key === "tiers") {
+        row.tiers = String(v).replace(/\s+/g, "").replace(/،/g, ",");
+      } else {
+        row[key] = String(v);
+      }
+    });
+
+    var code = row.code == null ? "" : String(row.code).trim();
+    row.code = code;
+    var lc = code.toLowerCase();
+    var ex = lc ? existingByCode[lc] : null;
+    if (!code) errs.push("الكود فاضي");
+    else if (seen[lc]) errs.push("الكود مكرر في الملف (أول ظهور في سطر " + seen[lc] + ")");
+    else seen[lc] = row._row;
+
+    row._status = ex ? "update" : "new";
+    if (!ex && !row.name) errs.push("الاسم مطلوب للصنف الجديد");
+    if (!row.name && ex) row._name = ex.name; else row._name = row.name || "";
+
+    // قاعدة السعر الأصلي: لازم يكون أكبر من سعر البيع (بنحسبها على القيم النهائية بعد الدمج)
+    var sp = row.selling_price != null ? row.selling_price : ex ? Number(ex.selling_price) || 0 : 0;
+    var op = row.old_price != null ? row.old_price : ex ? Number(ex.old_price) || 0 : 0;
+    if (op > 0 && op <= sp) errs.push("السعر الأصلي لازم يكون أكبر من سعر البيع (أو اكتب 0 في السعر الأصلي)");
+
+    row._errors = errs;
+    if (errs.length) row._status = "error";
+    plan.rows.push(row);
+  }
+  if (!plan.rows.length) plan.error = "مفيش أصناف في الملف (الصفوف فاضية)";
+  return plan;
+}
+
+// ----- قراءة الملف (SheetJS بيتحمّل أول ما نحتاجه بس) -----
+function loadXlsx() {
+  return new Promise(function (resolve, reject) {
+    if (window.XLSX) return resolve(window.XLSX);
+    var s = document.createElement("script");
+    s.src = "/assets/js/xlsx.mini.min.js";
+    s.onload = function () { resolve(window.XLSX); };
+    s.onerror = function () { reject(new Error("مقدرتش أحمّل مكتبة Excel — اتأكد من الإنترنت وجرّب تاني")); };
+    document.head.appendChild(s);
+  });
+}
+function xlDownload(X, aoa, sheetName, fileName) {
+  var ws = X.utils.aoa_to_sheet(aoa);
+  ws["!cols"] = XL_COLS.map(function (c) { return { wch: c.w || 14 }; });
+  var wb = X.utils.book_new();
+  X.utils.book_append_sheet(wb, ws, sheetName);
+  wb.Workbook = { Views: [{ RTL: true }] };
+  X.writeFile(wb, fileName);
+}
+function xlToday() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function exportItemsXlsx(btn) {
+  if (!ITEMS.length) return showToast("مفيش أصناف تتصدّر", true);
+  if (btn) btn.disabled = true;
+  loadXlsx()
+    .then(function (X) {
+      var aoa = [XL_COLS.map(function (c) { return c.ar; })];
+      ITEMS.forEach(function (it) {
+        aoa.push(XL_COLS.map(function (c) {
+          switch (c.k) {
+            case "group": return groupName(it.group_id);
+            case "active": return isActive(it) ? "نعم" : "لا";
+            case "featured": return truthy(it.featured) ? "نعم" : "لا";
+            case "selling_price":
+            case "old_price":
+            case "pub_qty":
+            case "min_qty":
+            case "min_order_qty":
+            case "qty_step":
+              return it[c.k] === "" || it[c.k] == null ? "" : Number(it[c.k]);
+            default: return it[c.k] == null ? "" : String(it[c.k]);
+          }
+        }));
+      });
+      xlDownload(X, aoa, "الأصناف", "catalog-items-" + xlToday() + ".xlsx");
+      showToast("اتصدّر " + ITEMS.length.toLocaleString("ar-EG") + " صنف");
+    })
+    .catch(function (e) { showToast(e.message || "فشل التصدير", true); })
+    .then(function () { if (btn) btn.disabled = false; });
+}
+function downloadImportTemplate() {
+  loadXlsx()
+    .then(function (X) {
+      var g = (GROUPS[0] && GROUPS[0].name) || "";
+      var aoa = [
+        XL_COLS.map(function (c) { return c.ar; }),
+        ["EX-001", "جاكيت شتوي", "وصف مختصر", g, "قطعة", 850, 950, "6:800,12:750", 100, 10, 1, 1, "M,L,XL", "", "نعم", "لا"],
+        ["EX-002", "سويت شيرت", "", g, "قطعة", 450, 0, "", 50, 5, 1, 1, "L,XL,XXL", "", "نعم", "نعم"],
+      ];
+      xlDownload(X, aoa, "الأصناف", "catalog-import-template.xlsx");
+    })
+    .catch(function (e) { showToast(e.message, true); });
+}
+
+// ----- مودال الاستيراد -----
+var _impPlan = null;
+function openImportModal() {
+  importBackToPick();
+  $("importModal").classList.add("show");
+}
+function closeImportModal() {
+  if (_busy.imp) return;
+  $("importModal").classList.remove("show");
+}
+function importBackToPick() {
+  _impPlan = null;
+  $("impFile").value = "";
+  $("impStepPick").hidden = false;
+  $("impStepPreview").hidden = true;
+  $("impBackBtn").hidden = true;
+  $("impGoBtn").hidden = true;
+  $("impCancelBtn").textContent = "إلغاء";
+  $("impError").textContent = "";
+}
+function _impReadFile(file) {
+  if (!file) return;
+  if (file.size > 8 * 1024 * 1024) return showToast("الملف كبير قوي (أقصى حجم 8MB)", true);
+  loadXlsx()
+    .then(function (X) {
+      return new Promise(function (resolve, reject) {
+        var fr = new FileReader();
+        fr.onerror = function () { reject(new Error("مقدرتش أقرا الملف")); };
+        fr.onload = function () {
+          try {
+            var wb = X.read(new Uint8Array(fr.result), { type: "array", cellDates: false });
+            var ws = wb.Sheets[wb.SheetNames[0]];
+            resolve(X.utils.sheet_to_json(ws, { header: 1, raw: true, defval: "", blankrows: false }));
+          } catch (e) {
+            reject(new Error("الملف مش Excel صالح"));
+          }
+        };
+        fr.readAsArrayBuffer(file);
+      });
+    })
+    .then(function (aoa) {
+      var plan = xlBuildPlan(aoa, { items: ITEMS, groups: GROUPS });
+      if (plan.error) return showToast(plan.error, true);
+      if (plan.rows.length > 2000) return showToast("الملف فيه أكتر من 2000 صنف — قسّمه على أكتر من ملف", true);
+      _impPlan = plan;
+      _impRenderPreview();
+    })
+    .catch(function (e) { showToast(e.message || "فشل قراءة الملف", true); });
+}
+function _impCounts() {
+  var c = { new: 0, update: 0, error: 0 };
+  _impPlan.rows.forEach(function (r) { c[r._status]++; });
+  return c;
+}
+function _impRenderPreview() {
+  var c = _impCounts();
+  $("impStepPick").hidden = true;
+  $("impStepPreview").hidden = false;
+  $("impBackBtn").hidden = false;
+  $("impSummary").innerHTML =
+    '<span class="imp-chip new">جديد: ' + c.new.toLocaleString("ar-EG") + "</span>" +
+    '<span class="imp-chip upd">تحديث: ' + c.update.toLocaleString("ar-EG") + "</span>" +
+    '<span class="imp-chip err">أخطاء (هتتخطى): ' + c.error.toLocaleString("ar-EG") + "</span>";
+  // الأخطاء الأول عشان تبان
+  var rows = _impPlan.rows.slice().sort(function (a, b) {
+    var w = { error: 0, new: 1, update: 2 };
+    return w[a._status] - w[b._status] || a._row - b._row;
+  });
+  var stTxt = { error: "خطأ", new: "جديد", update: "تحديث" };
+  $("impRows").innerHTML = rows.slice(0, 300).map(function (r) {
+    return "<tr><td>" + r._row + "</td><td>" + esc(r.code) + "</td><td>" + esc(r._name) + '</td><td class="msg st-' + (r._status === "error" ? "err" : r._status === "new" ? "new" : "upd") + '">' +
+      stTxt[r._status] + (r._errors.length ? " — " + esc(r._errors.join("، ")) : "") + "</td></tr>";
+  }).join("");
+  var notes = [];
+  if (rows.length > 300) notes.push("المعاينة بتعرض أول ٣٠٠ صف بس، لكن الاستيراد هيشمل كل الصفوف السليمة.");
+  if (_impPlan.unknownHeaders.length) notes.push("أعمدة اتجاهلت (مش معروفة): " + esc(_impPlan.unknownHeaders.join("، ")));
+  $("impNote").innerHTML = notes.join("<br>");
+  $("impError").textContent = "";
+  var ok = c.new + c.update;
+  $("impGoBtn").hidden = false;
+  $("impGoBtn").disabled = !ok;
+  $("impGoLabel").textContent = ok ? "استيراد " + ok.toLocaleString("ar-EG") + " صنف" : "مفيش صفوف سليمة";
+}
+async function runImport() {
+  if (!_impPlan || _busy.imp) return;
+  var valid = _impPlan.rows.filter(function (r) { return r._status !== "error"; });
+  if (!valid.length) return;
+  var goBtn = $("impGoBtn");
+  _busy.imp = true;
+  goBtn.disabled = true;
+  $("impBackBtn").disabled = true;
+  $("impCancelBtn").disabled = true;
+  function impDone() {
+    delete _busy.imp;
+    goBtn.disabled = false;
+    $("impBackBtn").disabled = false;
+    $("impCancelBtn").disabled = false;
+  }
+  var total = { created: 0, updated: 0, errors: [] };
+  var BATCH = 100;
+  try {
+    for (var i = 0; i < valid.length; i += BATCH) {
+      var batch = valid.slice(i, i + BATCH).map(function (r) {
+        var o = {};
+        Object.keys(r).forEach(function (k) { if (k.charAt(0) !== "_" || k === "_row") o[k] = r[k]; });
+        delete o.group; // الباكيند بياخد group_id بس
+        return o;
+      });
+      var res = await api("adminImportItems", PW, batch);
+      if (!res || !res.success) throw new Error((res && res.message) || "فشل الاستيراد");
+      total.created += res.created || 0;
+      total.updated += res.updated || 0;
+      (res.errors || []).forEach(function (e) { total.errors.push(e); });
+      $("impGoLabel").textContent = "جاري الاستيراد... " + Math.min(i + BATCH, valid.length) + " / " + valid.length;
+    }
+  } catch (err) {
+    impDone();
+    $("impGoLabel").textContent = "إعادة المحاولة";
+    $("impError").textContent = err.message + (total.created + total.updated ? " (اتنفّذ منهم " + (total.created + total.updated) + " قبل الخطأ — الإعادة آمنة، مفيش تكرار)" : "");
+    loadData(false);
+    return;
+  }
+  impDone();
+  $("importModal").classList.remove("show");
+  loadData(false);
+  var msg = "تم: " + total.created + " جديد، " + total.updated + " تحديث";
+  if (total.errors.length) {
+    msg += " — " + total.errors.length + " صف اتخطى";
+    UI.alert(total.errors.slice(0, 15).map(function (e) { return "سطر " + e.row + " (" + e.code + "): " + e.message; }).join("\n"), { title: "صفوف اتخطت في السيرفر" });
+  }
+  showToast(msg, total.errors.length > 0);
+}
+(function () {
+  var f = $("impFile"), d = $("impDrop");
+  if (!f || !d) return;
+  f.addEventListener("change", function () { _impReadFile(f.files && f.files[0]); });
+  ["dragenter", "dragover"].forEach(function (ev) {
+    d.addEventListener(ev, function (e) { e.preventDefault(); d.classList.add("drag"); });
+  });
+  ["dragleave", "drop"].forEach(function (ev) {
+    d.addEventListener(ev, function (e) { e.preventDefault(); d.classList.remove("drag"); });
+  });
+  d.addEventListener("drop", function (e) { _impReadFile(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]); });
+})();
+
 // ===== حفظ الصنف =====
 async function saveItem() {
   if (_busy.item) return; // الحفظ شغال بالفعل — تجاهل الدوسة التانية
@@ -3969,10 +4436,14 @@ async function saveItem() {
     if (f.deal_start && f.deal_end && Date.parse(f.deal_end) <= Date.parse(f.deal_start)) return fail("نهاية العرض لازم تكون بعد بدايته", "sec-price");
   }
   if (uploadsInFlight > 0) return fail("استنى لحد ما الصور تخلص رفع وبعدين احفظ", "sec-images");
-  var dup = ITEMS.some(function (x) {
-    return String(x.code).trim().toLowerCase() === payload.code.toLowerCase() && String(x.id) !== String(currentEditItemId || "");
-  });
-  if (dup && !(await UI.confirm('الكود "' + payload.code + '" موجود قبل كده في صنف تاني. تكمّل برضو؟', { title: "كود مكرر", okText: "كمّل برضو" }))) return;
+  // الكود لازم يكون فريد (بدون اعتبار لحالة الحروف أو المسافات) — مفيش خيار "كمّل برضو"
+  var dupItem = ITEMS.filter(function (x) {
+    return String(x.code || "").trim().toLowerCase() === payload.code.toLowerCase() && String(x.id) !== String(currentEditItemId || "");
+  })[0];
+  if (dupItem) {
+    $("f_code").focus();
+    return fail('الكود "' + payload.code + '" مستخدم بالفعل في صنف "' + (dupItem.name || "") + '" — اكتب كود مختلف', "sec-basic");
+  }
 
   var btns = [$("itemSaveBtn")];
   if (!busyStart("item", btns)) return;

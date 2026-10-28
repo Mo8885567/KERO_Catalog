@@ -1576,6 +1576,186 @@ tbody tr.off {
   gap: 8px;
   margin-bottom: 8px;
 }
+.color-drag-handle {
+  width: 24px;
+  height: 36px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--text3);
+  font-size: 18px;
+  padding: 0;
+  border-radius: 6px;
+  cursor: grab;
+  touch-action: none;
+}
+.color-drag-handle:hover {
+  color: var(--text);
+  background: var(--surface);
+}
+.color-drag-handle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.colors-editor.sorting {
+  user-select: none;
+  -webkit-user-select: none;
+}
+.colors-editor.sorting .color-row {
+  transition: transform 0.15s ease;
+}
+.colors-editor.sorting .color-row.dragging {
+  transition: none;
+  position: relative;
+  z-index: 5;
+  box-shadow: var(--shadow-lg);
+  cursor: grabbing;
+}
+.cp-ov {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 17, 17, 0.7);
+  z-index: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+}
+.cp-box {
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 10px;
+  width: 100%;
+  max-width: 640px;
+  max-height: calc(100vh - 28px);
+  overflow: auto;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+}
+.cp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 700;
+}
+.cp-body {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.cp-thumbs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.cp-thumb {
+  flex: 0 0 auto;
+  width: 52px;
+  height: 52px;
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  padding: 0;
+  overflow: hidden;
+  background: var(--surface2);
+  cursor: pointer;
+}
+.cp-thumb.on {
+  border-color: var(--accent);
+}
+.cp-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.cp-stagewrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: var(--surface2);
+  border-radius: 8px;
+  padding: 8px;
+  min-height: 120px;
+}
+.cp-stage {
+  position: relative;
+  line-height: 0;
+}
+.cp-main {
+  display: block;
+  cursor: crosshair;
+  touch-action: none;
+  border-radius: 4px;
+}
+.cp-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.65), inset 0 0 0 1px rgba(0, 0, 0, 0.65);
+  pointer-events: none;
+  display: none;
+}
+.cp-loupe {
+  position: absolute;
+  width: 112px;
+  height: 112px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), 0 6px 18px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  display: none;
+  background: #fff;
+}
+.cp-msg {
+  color: var(--text2);
+  font-size: 13px;
+  text-align: center;
+  padding: 18px 8px;
+  line-height: 1.7;
+}
+.cp-ctl {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text2);
+}
+.cp-ctl input[type="range"] {
+  flex: 1;
+}
+.cp-res {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cp-sw {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  border: 1px solid var(--border2);
+  flex-shrink: 0;
+}
+.cp-hex {
+  font-family: monospace;
+  font-size: 15px;
+  direction: ltr;
+}
+.cp-foot {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
 .color-hex-input {
   width: 40px !important;
   height: 36px;
@@ -4690,8 +4870,9 @@ function renderColorsEditor() {
         .join("");
       return (
         '<div class="color-row"><div class="color-row-head">' +
+        (currentColors.length > 1 ? '<button type="button" class="color-drag-handle" title="اسحب لترتيب اللون (أو استخدم الأسهم ↑ ↓)" aria-label="ترتيب اللون"><i class="ti ti-grip-vertical"></i></button>' : "") +
         '<input type="color" class="color-hex-input" value="' + esc(c.hex || "#94a3b8") + "\" onchange=\"updateColorField(" + ci + ",'hex',this.value)\">" +
-        (window.EyeDropper ? '<button type="button" class="icon-btn eyedropper-btn" onclick="pickColorFromScreen(' + ci + ',this)" title="التقط لون من الشاشة" aria-label="التقط لون من الشاشة"><i class="ti ti-color-picker"></i></button>' : "") +
+        '<button type="button" class="icon-btn eyedropper-btn" onclick="openColorPicker(' + ci + ')" title="التقط لون من صور المنتج" aria-label="التقط لون من صور المنتج"><i class="ti ti-color-picker"></i></button>' +
         '<input type="text" class="color-name-input" placeholder="اسم اللون (مثال: أحمر)" value="' + esc(c.name || "") + "\" onchange=\"updateColorField(" + ci + ",'name',this.value)\">" +
         '<button type="button" class="icon-btn danger" onclick="removeColorRow(' + ci + ')" title="حذف اللون" aria-label="حذف اللون"><i class="ti ti-trash"></i></button></div>' +
         '<div class="color-images-list">' + imgs + "</div>" +
@@ -4702,6 +4883,142 @@ function renderColorsEditor() {
     })
     .join("");
 }
+// ===== سحب وترتيب الألوان =====
+function moveColor(from, to) {
+  if (from === to || from < 0 || to < 0 || from >= currentColors.length || to >= currentColors.length) return;
+  var item = currentColors.splice(from, 1)[0];
+  currentColors.splice(to, 0, item);
+  modalDirty = true;
+  renderColorsEditor();
+  updatePreview();
+}
+(function initColorDrag() {
+  var wrap = $("colorsEditorList");
+  if (!wrap) return;
+  var drag = null;
+
+  function scrollParentOf(el) {
+    for (var p = el.parentElement; p; p = p.parentElement) {
+      var oy = getComputedStyle(p).overflowY;
+      if ((oy === "auto" || oy === "scroll") && p.scrollHeight > p.clientHeight) return p;
+    }
+    return document.scrollingElement || document.documentElement;
+  }
+  function viewportRect(sp) {
+    if (sp === document.scrollingElement || sp === document.documentElement) return { top: 0, bottom: window.innerHeight };
+    var r = sp.getBoundingClientRect();
+    return { top: r.top, bottom: r.bottom };
+  }
+  function update() {
+    if (!drag) return;
+    var dy = drag.clientY - drag.startY + (drag.sp.scrollTop - drag.startScroll);
+    drag.row.style.transform = "translateY(" + dy + "px)";
+    var center = drag.tops[drag.idx] + drag.heights[drag.idx] / 2 + dy;
+    var target = 0;
+    for (var i = 0; i < drag.rows.length; i++) {
+      if (i !== drag.idx && drag.tops[i] + drag.heights[i] / 2 < center) target++;
+    }
+    drag.target = target;
+    var shift = drag.heights[drag.idx] + drag.gap;
+    for (var j = 0; j < drag.rows.length; j++) {
+      if (j === drag.idx) continue;
+      var t = 0;
+      if (j > drag.idx && j <= target) t = -shift;
+      else if (j < drag.idx && j >= target) t = shift;
+      drag.rows[j].style.transform = t ? "translateY(" + t + "px)" : "";
+    }
+  }
+  function autoScroll() {
+    if (!drag) return;
+    var vr = viewportRect(drag.sp);
+    var edge = 56;
+    var speed = 0;
+    if (drag.clientY < vr.top + edge) speed = -Math.ceil((vr.top + edge - drag.clientY) / 4);
+    else if (drag.clientY > vr.bottom - edge) speed = Math.ceil((drag.clientY - (vr.bottom - edge)) / 4);
+    if (speed) {
+      drag.sp.scrollTop += Math.max(-24, Math.min(24, speed));
+      update();
+    }
+    drag.raf = requestAnimationFrame(autoScroll);
+  }
+  function endDrag(commit) {
+    if (!drag) return;
+    var d = drag;
+    drag = null;
+    cancelAnimationFrame(d.raf);
+    d.handle.removeEventListener("pointermove", onMove);
+    d.handle.removeEventListener("pointerup", onUp);
+    d.handle.removeEventListener("pointercancel", onCancel);
+    try { d.handle.releasePointerCapture(d.pointerId); } catch (e) {}
+    wrap.classList.remove("sorting");
+    d.rows.forEach(function (r) {
+      r.style.transform = "";
+      r.classList.remove("dragging");
+    });
+    if (commit && d.target !== d.idx) moveColor(d.idx, d.target);
+  }
+  function onMove(e) {
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    drag.clientY = e.clientY;
+    update();
+  }
+  function onUp(e) {
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    endDrag(true);
+  }
+  function onCancel() {
+    endDrag(false);
+  }
+
+  wrap.addEventListener("pointerdown", function (e) {
+    var handle = e.target.closest && e.target.closest(".color-drag-handle");
+    if (!handle || drag) return;
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    e.preventDefault();
+    // لو المستخدم كان بيكتب اسم لون، نثبّته قبل ما الترتيب يتغير
+    var ae = document.activeElement;
+    if (ae && ae !== document.body && ae.blur) ae.blur();
+
+    var rows = Array.prototype.slice.call(wrap.querySelectorAll(".color-row"));
+    var row = handle.closest(".color-row");
+    var idx = rows.indexOf(row);
+    if (idx < 0) return;
+    var sp = scrollParentOf(wrap);
+    var tops = [], heights = [];
+    rows.forEach(function (r) {
+      var rc = r.getBoundingClientRect();
+      tops.push(rc.top + sp.scrollTop);
+      heights.push(rc.height);
+    });
+    var gap = rows.length > 1 ? Math.max(0, tops[1] - tops[0] - heights[0]) : 0;
+    drag = {
+      handle: handle, pointerId: e.pointerId, row: row, rows: rows, idx: idx, target: idx,
+      tops: tops, heights: heights, gap: gap, sp: sp,
+      startY: e.clientY, clientY: e.clientY, startScroll: sp.scrollTop, raf: 0,
+    };
+    try { handle.setPointerCapture(e.pointerId); } catch (err) {}
+    handle.addEventListener("pointermove", onMove);
+    handle.addEventListener("pointerup", onUp);
+    handle.addEventListener("pointercancel", onCancel);
+    wrap.classList.add("sorting");
+    row.classList.add("dragging");
+    drag.raf = requestAnimationFrame(autoScroll);
+  });
+
+  // ترتيب بالكيبورد: اضغط على المقبض ثم ↑ / ↓
+  wrap.addEventListener("keydown", function (e) {
+    var handle = e.target.closest && e.target.closest(".color-drag-handle");
+    if (!handle || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+    e.preventDefault();
+    var rows = Array.prototype.slice.call(wrap.querySelectorAll(".color-row"));
+    var idx = rows.indexOf(handle.closest(".color-row"));
+    var to = e.key === "ArrowUp" ? idx - 1 : idx + 1;
+    if (idx < 0 || to < 0 || to >= rows.length) return;
+    moveColor(idx, to);
+    var hs = wrap.querySelectorAll(".color-drag-handle");
+    if (hs[to]) hs[to].focus();
+  });
+})();
 function addColorRow() {
   currentColors.push({ name: "", hex: "#94a3b8", images: [] });
   modalDirty = true;
@@ -4713,21 +5030,264 @@ function removeColorRow(ci) {
   renderColorsEditor();
   updatePreview();
 }
-async function pickColorFromScreen(ci, btn) {
-  if (!window.EyeDropper) {
-    showToast("المتصفح ده مش بيدعم القطّارة — استخدم Chrome أو Edge", true);
-    return;
+// ===== التقاط اللون من صور المنتج (متوسط منطقة، مش بكسل واحد) =====
+var _eyeBusy = false;
+var _cp = null;
+function _cpHex(r, g, b) {
+  return "#" + [r, g, b].map(function (v) { return ("0" + Math.max(0, Math.min(255, Math.round(v))).toString(16)).slice(-2); }).join("");
+}
+// متوسط مقصوص: بيشيل أفتح وأغمق 10% من كل قناة عشان اللمعة والظل ما يبوّظوش اللون
+function _cpTrimmed(arr) {
+  if (!arr.length) return 0;
+  arr.sort(function (x, y) { return x - y; });
+  var cut = Math.floor(arr.length * 0.1);
+  var lo = cut, hi = arr.length - cut;
+  if (hi <= lo) { lo = 0; hi = arr.length; }
+  var sum = 0;
+  for (var i = lo; i < hi; i++) sum += arr[i];
+  return sum / (hi - lo);
+}
+// data = ImageData.data لمنطقة بدايتها (x0,y0) وعرضها w؛ المركز (cx,cy) ونصف القطر half بإحداثيات الصورة
+function _cpColorFromPixels(data, w, h, x0, y0, cx, cy, half) {
+  var R = [], G = [], B = [];
+  var r2 = half * half;
+  for (var y = 0; y < h; y++) {
+    for (var x = 0; x < w; x++) {
+      var dx = x0 + x + 0.5 - cx, dy = y0 + y + 0.5 - cy;
+      if (dx * dx + dy * dy > r2) continue;
+      var k = (y * w + x) * 4;
+      if (data[k + 3] < 16) continue;
+      R.push(data[k]); G.push(data[k + 1]); B.push(data[k + 2]);
+    }
   }
+  if (!R.length) return null;
+  return _cpHex(_cpTrimmed(R), _cpTrimmed(G), _cpTrimmed(B));
+}
+function _cpImages(ci) {
+  var list = [], seen = {};
+  function add(u) {
+    u = String(u || "").trim();
+    if (!u || seen[u]) return;
+    seen[u] = 1;
+    list.push(u);
+  }
+  ((currentColors[ci] || {}).images || []).forEach(add);
+  add($("f_image_url").value);
+  currentExtraImages.forEach(add);
+  currentColors.forEach(function (c) { (c.images || []).forEach(add); });
+  return list;
+}
+function _cpSources(u) {
+  var f = fixDriveUrl(u);
+  var m = /^https:\/\/lh3\.googleusercontent\.com\/d\/([\w-]+)=w\d+$/.exec(f);
+  if (m) return ["/api/img?id=" + m[1] + "&w=800", "https://lh3.googleusercontent.com/d/" + m[1] + "=w800"];
+  return [f];
+}
+function _cpLoad(u) {
+  var srcs = _cpSources(u);
+  return new Promise(function (resolve, reject) {
+    var i = 0;
+    (function next() {
+      if (i >= srcs.length) return reject(new Error("load"));
+      var im = new Image();
+      im.crossOrigin = "anonymous";
+      im.onload = function () { resolve(im); };
+      im.onerror = function () { next(); };
+      im.src = srcs[i++];
+    })();
+  });
+}
+function closeColorPicker() {
+  if (!_cp) return;
+  document.removeEventListener("keydown", _cp.onKey, true);
+  _cp.ov.remove();
+  _cp = null;
+  window._cpOpen = false;
+}
+function openColorPicker(ci) {
+  if (_cp) closeColorPicker();
+  var imgs = _cpImages(ci);
+  var ov = document.createElement("div");
+  ov.className = "cp-ov";
+  ov.innerHTML =
+    '<div class="cp-box" role="dialog" aria-modal="true" aria-label="التقاط اللون">' +
+    '<div class="cp-head"><span>التقاط اللون من الصورة</span><button type="button" class="icon-btn" data-cp="close" aria-label="إغلاق"><i class="ti ti-x"></i></button></div>' +
+    '<div class="cp-body">' +
+    (imgs.length > 1
+      ? '<div class="cp-thumbs">' + imgs.map(function (u, i) {
+          return '<button type="button" class="cp-thumb" data-cp-i="' + i + '"><img src="' + esc(thumbSrc(fixDriveUrl(u), 160)) + '" alt="" onerror="this.style.opacity=.2"></button>';
+        }).join("") + "</div>"
+      : "") +
+    '<div class="cp-stagewrap" id="cpStageWrap"><div class="cp-msg">' + (imgs.length ? "جاري تحميل الصورة…" : "مفيش صور للمنتج لسه — ارفع صورة الأول، أو استخدم «التقاط من الشاشة» تحت.") + "</div></div>" +
+    '<div class="cp-ctl"><span>حجم منطقة العيّنة</span><input type="range" id="cpRad" min="1" max="40" value="12"><span id="cpRadVal">12</span></div>' +
+    '<div class="cp-msg" style="padding:0;text-align:right">دوس على مكان في الصورة (أو اسحب على الموبايل). اللون بيتحسب كمتوسط المنطقة الدايرية — كبّرها لو الخامة فيها تفاصيل أو ظل.</div>' +
+    '<div class="cp-res"><div class="cp-sw" id="cpSw"></div><div><div class="cp-hex" id="cpHex">—</div></div></div>' +
+    "</div>" +
+    '<div class="cp-foot">' +
+    (window.EyeDropper ? '<button type="button" class="btn btn-sm" data-cp="native" style="margin-inline-end:auto"><i class="ti ti-color-picker"></i> التقاط من الشاشة</button>' : "") +
+    '<button type="button" class="btn btn-sm" data-cp="close">إلغاء</button>' +
+    '<button type="button" class="btn btn-primary btn-sm" data-cp="apply" id="cpApply" disabled><i class="ti ti-check"></i> استخدم اللون</button>' +
+    "</div></div>";
+  document.body.appendChild(ov);
+  window._cpOpen = true;
+
+  var st = { ci: ci, ov: ov, hex: "", imgs: imgs, main: null, src: null, sctx: null, dw: 0, dh: 0, sw: 0, sh: 0, px: null, py: null, pressed: false, ring: null, loupe: null, lctx: null, ctx: null };
+  st.onKey = function (e) {
+    if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeColorPicker(); }
+    else if (e.key === "Enter" && st.hex && !/^(INPUT|BUTTON)$/.test((e.target || {}).tagName || "")) { e.preventDefault(); e.stopPropagation(); _cpApply(); }
+  };
+  _cp = st;
+  document.addEventListener("keydown", st.onKey, true);
+
+  ov.addEventListener("mousedown", function (e) { if (e.target === ov) closeColorPicker(); });
+  ov.addEventListener("click", function (e) {
+    var t = e.target.closest && e.target.closest("[data-cp],[data-cp-i]");
+    if (!t) return;
+    var act = t.getAttribute("data-cp");
+    if (act === "close") closeColorPicker();
+    else if (act === "apply") _cpApply();
+    else if (act === "native") _cpNative();
+    else if (t.hasAttribute("data-cp-i")) _cpShow(+t.getAttribute("data-cp-i"));
+  });
+  $("cpRad").addEventListener("input", function () {
+    $("cpRadVal").textContent = this.value;
+    if (st.px != null) _cpPick(st.px, st.py);
+    else _cpRing();
+  });
+  if (imgs.length) _cpShow(0);
+}
+function _cpRad() { return +($("cpRad") || { value: 12 }).value; }
+function _cpRing() {
+  var st = _cp;
+  if (!st || !st.ring || st.px == null) return;
+  var r = _cpRad();
+  st.ring.style.cssText = "display:block;width:" + 2 * r + "px;height:" + 2 * r + "px;left:" + (st.px - r) + "px;top:" + (st.py - r) + "px";
+}
+function _cpShow(i) {
+  var st = _cp;
+  if (!st) return;
+  var wrap = $("cpStageWrap");
+  [].forEach.call(st.ov.querySelectorAll(".cp-thumb"), function (b, k) { b.classList.toggle("on", k === i); });
+  st.px = st.py = null; st.hex = "";
+  $("cpHex").textContent = "—"; $("cpSw").style.background = ""; $("cpApply").disabled = true;
+  wrap.innerHTML = '<div class="cp-msg">جاري تحميل الصورة…</div>';
+  _cpLoad(st.imgs[i]).then(function (im) {
+    if (_cp !== st) return;
+    var sw = Math.min(im.naturalWidth, 1000), sh = Math.round(im.naturalHeight * sw / im.naturalWidth);
+    var src = document.createElement("canvas");
+    src.width = sw; src.height = sh;
+    var sctx = src.getContext("2d", { willReadFrequently: true });
+    sctx.drawImage(im, 0, 0, sw, sh);
+    try { sctx.getImageData(0, 0, 1, 1); } catch (e) { throw new Error("taint"); }
+    var maxW = Math.min(560, window.innerWidth - 80), maxH = Math.round(window.innerHeight * 0.5);
+    var fit = Math.min(maxW / sw, maxH / sh);
+    var dw = Math.max(80, Math.round(sw * fit)), dh = Math.max(80, Math.round(sh * fit));
+    wrap.innerHTML = '<div class="cp-stage"><canvas class="cp-main" width="' + dw + '" height="' + dh + '" style="width:' + dw + "px;height:" + dh + 'px"></canvas><div class="cp-ring"></div><canvas class="cp-loupe" width="112" height="112"></canvas></div>';
+    var stage = wrap.firstChild;
+    var cv = stage.querySelector(".cp-main");
+    cv.getContext("2d").drawImage(src, 0, 0, dw, dh);
+    st.main = cv; st.src = src; st.sctx = sctx; st.dw = dw; st.dh = dh; st.sw = sw; st.sh = sh;
+    st.ring = stage.querySelector(".cp-ring");
+    st.loupe = stage.querySelector(".cp-loupe");
+    st.lctx = st.loupe.getContext("2d");
+    function pos(e) {
+      var r = cv.getBoundingClientRect();
+      return [Math.max(0, Math.min(dw - 1, e.clientX - r.left)), Math.max(0, Math.min(dh - 1, e.clientY - r.top)), e.pointerType !== "mouse"];
+    }
+    cv.addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      st.pressed = true;
+      try { cv.setPointerCapture(e.pointerId); } catch (x) {}
+      var p = pos(e); _cpPick(p[0], p[1]); _cpLoupe(p[0], p[1], p[2]);
+    });
+    cv.addEventListener("pointermove", function (e) {
+      var p = pos(e);
+      if (st.pressed) _cpPick(p[0], p[1]);
+      _cpLoupe(p[0], p[1], p[2]);
+    });
+    cv.addEventListener("pointerup", function (e) {
+      st.pressed = false;
+      if (e.pointerType !== "mouse") st.loupe.style.display = "none";
+    });
+    cv.addEventListener("pointerleave", function () { if (!st.pressed) st.loupe.style.display = "none"; });
+    cv.addEventListener("pointercancel", function () { st.pressed = false; st.loupe.style.display = "none"; });
+  }).catch(function (err) {
+    if (_cp !== st) return;
+    wrap.innerHTML = '<div class="cp-msg">' + (err && err.message === "taint"
+      ? "المتصفح مانع قراءة ألوان الصورة دي (مصدر خارجي)."
+      : "مقدرتش أحمّل الصورة.") + (window.EyeDropper ? " جرّب «التقاط من الشاشة»." : "") + "</div>";
+  });
+}
+function _cpLoupe(x, y, touch) {
+  var st = _cp;
+  if (!st || !st.loupe) return;
+  var Z = 6, L = 112, r = _cpRad();
+  var c = st.lctx;
+  c.imageSmoothingEnabled = false;
+  c.clearRect(0, 0, L, L);
+  c.fillStyle = "#fff"; c.fillRect(0, 0, L, L);
+  var span = L / Z;
+  c.drawImage(st.main, x - span / 2, y - span / 2, span, span, 0, 0, L, L);
+  c.lineWidth = 2;
+  c.strokeStyle = "rgba(0,0,0,.7)";
+  c.beginPath(); c.arc(L / 2, L / 2, Math.min(r * Z, L / 2 - 2), 0, 6.2832); c.stroke();
+  c.strokeStyle = "#fff"; c.lineWidth = 1;
+  c.beginPath(); c.arc(L / 2, L / 2, Math.min(r * Z, L / 2 - 2), 0, 6.2832); c.stroke();
+  var lx = Math.max(0, Math.min(st.dw - L, x - L / 2));
+  var ly = y - L - (touch ? 34 : 16);
+  if (ly < 0) ly = y + 20;
+  st.loupe.style.cssText = "display:block;left:" + lx + "px;top:" + ly + "px";
+}
+function _cpPick(x, y) {
+  var st = _cp;
+  if (!st || !st.src) return;
+  st.px = x; st.py = y;
+  _cpRing();
+  var k = st.sw / st.dw;
+  var cx = x * k, cy = y * k, half = Math.max(1, _cpRad() * k);
+  var x0 = Math.max(0, Math.floor(cx - half)), y0 = Math.max(0, Math.floor(cy - half));
+  var x1 = Math.min(st.sw, Math.ceil(cx + half)), y1 = Math.min(st.sh, Math.ceil(cy + half));
+  var w = x1 - x0, h = y1 - y0;
+  if (w < 1 || h < 1) return;
+  var hex;
+  try { hex = _cpColorFromPixels(st.sctx.getImageData(x0, y0, w, h).data, w, h, x0, y0, cx, cy, half); } catch (e) { hex = null; }
+  if (!hex) return;
+  st.hex = hex;
+  $("cpHex").textContent = hex.toUpperCase();
+  $("cpSw").style.background = hex;
+  $("cpApply").disabled = false;
+}
+function _cpApply(hexOverride) {
+  var st = _cp;
+  if (!st) return;
+  var hex = String(hexOverride || st.hex || "").toLowerCase();
+  if (!/^#[0-9a-f]{6}$/.test(hex)) return;
+  var ci = st.ci;
+  closeColorPicker();
+  if (!currentColors[ci]) return;
+  updateColorField(ci, "hex", hex);
+  var row = document.querySelectorAll("#colorsEditorList .color-row")[ci];
+  if (row) {
+    var input = row.querySelector(".color-hex-input");
+    if (input) input.value = hex;
+    // الفوكس يرجع لخانة الاسم (أو يتشال) عشان الكتابة متروحش للزرار
+    var nm = row.querySelector(".color-name-input");
+    if (nm && !nm.value.trim()) nm.focus();
+    else if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  }
+}
+async function _cpNative() {
+  var st = _cp;
+  if (!st || !window.EyeDropper) return;
+  _eyeBusy = true;
   try {
     var result = await new EyeDropper().open();
     var hex = String(result.sRGBHex || "").toLowerCase();
-    if (!/^#[0-9a-f]{6}$/.test(hex)) return;
-    updateColorField(ci, "hex", hex);
-    var row = btn && btn.closest(".color-row-head");
-    var input = row && row.querySelector(".color-hex-input");
-    if (input) input.value = hex;
+    if (/^#[0-9a-f]{6}$/.test(hex)) _cpApply(hex);
   } catch (e) {
     /* المستخدم لغى الاختيار (Esc) */
+  } finally {
+    setTimeout(function () { _eyeBusy = false; }, 600);
   }
 }
 function updateColorField(ci, field, val) {
@@ -4804,6 +5364,7 @@ $("groupModal").addEventListener("mousedown", function (e) {
 });
 document.addEventListener("keydown", function (e) {
   if (e.key !== "Escape") return;
+  if (window._cpOpen || _eyeBusy) return;
   if ($("groupModal").classList.contains("show")) closeGroupModal();
   else if ($("itemModal").classList.contains("show")) closeItemModal();
 });

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>الشماعة - كيرو مان</title>
+    <link href="/assets/fonts/fonts.css" rel="stylesheet" />
+    <link rel="stylesheet" href="/assets/rack/clothing-rack.css" />
+    <style>body{margin:0;background:#E3E8EC}</style>
+  </head>
+  <body>
+    <div id="rack"></div>
+
+    <script src="/assets/rack/clothing-rack.js"></script>
+    <script>
+      // بيانات تجريبية: استبدلها ببيانات الكتالوج الحقيقية (شوف الشرح)
+      const products = [
+        {
+          id: "tee-1", type: "tee", name: "تيشيرت بوكسي ثقيل", tagline: "قطن ٢٤٠ جم", price: 450,
+          sizes: ["S", "M", "L", "XL"],
+          colors: [
+            { id: "sand", name: "رملي", hex: "#CDB89A", stock: { S: 3, M: 12, L: 9, XL: 0 } },
+            { id: "navy", name: "كحلي", hex: "#1E2A44", stock: { S: 0, M: 7, L: 14, XL: 6 } },
+          ],
+        },
+        {
+          id: "hoodie-1", type: "hoodie", name: "هودي ثقيل", tagline: "٤٢٠ جم، جيب أمامي", price: 990,
+          sizes: ["M", "L", "XL"],
+          colors: [
+            { id: "rust", name: "قرميدي", hex: "#B4533A", stock: { M: 2, L: 0, XL: 5 } },
+            { id: "bone", name: "أوف وايت", hex: "#EEEAE0", stock: { M: 8, L: 8, XL: 8 } },
+          ],
+        },
+        {
+          id: "crew-1", type: "crew", name: "سويت شيرت كرو", tagline: "داخل فليس", price: 780,
+          sizes: ["S", "M", "L", "XL"],
+          colors: [{ id: "olive", name: "زيتي", hex: "#5B6B4A", stock: { S: 4, M: 9, L: 11, XL: 1 } }],
+        },
+      ];
+
+      ClothingRack.mount("#rack", {
+        products,
+        locale: "ar-EG",
+        currency: "EGP",
+        labels: ClothingRack.labels.ar,
+        onAddToCart: ({ product, color, size }) => console.log(product.id, color.id, size),
+      });
+    </script>
+  </body>
+</html>

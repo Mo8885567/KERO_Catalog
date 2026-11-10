@@ -1208,6 +1208,7 @@ function logPublicCatalogWhatsapp(payload) {
           name: String(l.name || '').slice(0, 120),
           qty: Number(l.qty || 0) || 0,
           color: String(l.color || '').slice(0, 40),
+          size: String(l.size || '').slice(0, 20),
           unit_price: Number(l.unit_price || 0) || 0,
         };
       });

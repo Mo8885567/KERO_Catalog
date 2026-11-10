@@ -3513,6 +3513,9 @@
     <link rel="stylesheet" href="/assets/css/amazon-theme.css" />
     <link rel="stylesheet" href="/assets/css/header-pro.css" />
     <link rel="stylesheet" href="/assets/css/custom-select.css" />
+    <link rel="stylesheet" href="/assets/css/3d-images.css" />
+    <link rel="stylesheet" href="/assets/css/tryon.css" />
+    <link rel="stylesheet" href="/assets/css/hanger3d.css" />
     <script src="/assets/js/ui-dialogs.js"></script>
   </head>
   <body>
@@ -6651,8 +6654,8 @@
       // ── Cart State ────────────────────────────────────────────────
       var CART = []; // [{code, name, imageUrl, color, colorHex, qty}]
 
-      function _cartKey(code, color) {
-        return code + "||" + (color || "");
+      function _cartKey(code, color, size) {
+        return code + "||" + (color || "") + (size ? "||" + size : "");
       }
 
       // ── سبينر الكمية: زرار +/- بيحترم مضاعف الطقم، وتصحيح تلقائي
@@ -6834,7 +6837,7 @@
 
         var key = _cartKey(code, color);
         var existing = CART.find(function (i) {
-          return _cartKey(i.code, i.color) === key;
+          return _cartKey(i.code, i.color, i.size) === key;
         });
         if (existing) {
           existing.qty += qty;
@@ -6866,6 +6869,65 @@
 
         _flashSuccess(document.getElementById("btn-add-to-cart"));
         _showToast("✅ تمت الإضافة: " + name + (color ? " — " + color : ""));
+        return true;
+      }
+
+      // إضافة من الشماعة 3D (assets/js/rack-bridge.js) — بنفس قواعد الحد الأدنى
+      // للكمية ومضاعف الطقم اللي في نافذة الصنف، ومعاها المقاس.
+      function addRackSelectionToCart(code, colorName, size) {
+        var it = PUB.items.find(function (x) {
+          return String(x.code || x.id) === String(code);
+        });
+        if (!it) {
+          _showToast("⚠️ الصنف مش متاح حاليًا");
+          return false;
+        }
+        var step = Math.max(1, Number(it.qty_step || 0));
+        var rawMoq = Math.max(1, Number(it.min_order_qty || 0));
+        var qty = step > 1 ? Math.ceil(rawMoq / step) * step : rawMoq;
+
+        var colorHex = "";
+        var image = it.image_url || "";
+        if (colorName) {
+          var found = _parseColors(it.colors_json).find(function (c) {
+            return c.name === colorName;
+          });
+          if (found) {
+            colorHex =
+              found.hex ||
+              COLOR_HEX_MAP[found.code] ||
+              _guessHex(found.name) ||
+              "#94a3b8";
+            image = found.image || image;
+          }
+        }
+
+        var key = _cartKey(code, colorName, size);
+        var existing = CART.find(function (i) {
+          return _cartKey(i.code, i.color, i.size) === key;
+        });
+        if (existing) {
+          existing.qty += qty;
+        } else {
+          CART.push({
+            code: code,
+            name: it.name || code,
+            imageUrl: image,
+            color: colorName || "",
+            colorHex: colorHex,
+            size: size || "",
+            qty: qty,
+            minOrderQty: rawMoq,
+            qtyStep: step,
+          });
+        }
+        _updateCartUI();
+        _showToast(
+          "✅ تمت الإضافة: " +
+            (it.name || code) +
+            (colorName ? " — " + colorName : "") +
+            (size ? " — مقاس " + size : ""),
+        );
         return true;
       }
 
@@ -6990,6 +7052,9 @@
               _esc(item.color) +
               "</div>"
             : "";
+          var sizeRow = item.size
+            ? '<div class="cart-item-color">المقاس: <b>' + _esc(item.size) + "</b></div>"
+            : "";
           return (
             '<div class="cart-item" id="cart-item-' +
             idx +
@@ -7005,6 +7070,7 @@
             "</span>" +
             "</div>" +
             colorRow +
+            sizeRow +
             _cartLinePriceHtml(item) +
             '<div class="cart-item-qty-row">' +
             '<button class="qty-btn" onclick="cartQty(' +
@@ -7216,6 +7282,7 @@
             item.code +
             ")" +
             (item.color ? " — اللون: " + item.color : "") +
+            (item.size ? " — المقاس: " + item.size : "") +
             " — الكمية: " +
             item.qty +
             (function () {
@@ -7246,6 +7313,7 @@
               name: item.name,
               qty: item.qty,
               color: item.color || "",
+              size: item.size || "",
               unit_price: it && !PUB.urlNoprices ? _unitPriceFor(it, item.qty) : 0,
             };
           }),
@@ -7402,7 +7470,11 @@
       <script src="/assets/js/mobile-shell.js"></script>
       <script src="/assets/js/interactive.js"></script>
       <script src="/assets/js/features.js"></script>
+      <script src="/assets/js/tryon.js"></script>
       <script src="/assets/js/media.js"></script>
+      <script src="/assets/js/3d-images.js"></script>
+      <script src="/assets/js/hanger3d.js"></script>
+      <script src="/assets/js/rack-bridge.js"></script>
       <script src="/assets/js/push.js"></script>
       <script src="/assets/js/promo.js"></script>
       <script src="/assets/js/pull-refresh.js"></script>

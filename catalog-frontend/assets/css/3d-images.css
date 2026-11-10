@@ -1,0 +1,119 @@
+/* ═══════════════════════════════════════════════════════════════
+   3D Images — تأثير ثلاثي الأبعاد لصور المنتجات
+   - الكارت بيميل مع حركة الماوس (perspective) + لمعة ضوء + ظل عمق
+   - الصورة نفسها بتطفو (parallax) جوه الكارت
+   - معرض التفاصيل: نفس الميل على الصورة الكبيرة
+   - على اللمس: شكل عمق ثابت (من غير ميل عشان ما يتعارضش مع السحب/السكرول)
+   بيتحمّل بعد باقي الـ CSS. تحكّم من المتغيّرات تحت.
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  --t3d-perspective: 900px;
+  --t3d-depth-shadow: 0 14px 28px -10px rgba(15, 17, 17, 0.38);
+}
+
+/* ───────── صورة المنتج: عمق دايمًا (حتى من غير حركة) ───────── */
+.card-img-wrap {
+  background: radial-gradient(120% 90% at 50% 38%, #fff 0%, #f1f3f5 100%);
+}
+:root[data-theme="dark"] .card-img-wrap {
+  background: radial-gradient(120% 90% at 50% 38%, var(--surface2) 0%, var(--surface) 100%);
+}
+.card-img-wrap img {
+  filter: drop-shadow(0 10px 10px rgba(15, 17, 17, 0.28));
+  backface-visibility: hidden;
+}
+
+/* ───────── لمعة الضوء فوق الصورة ───────── */
+.card-img-wrap::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    circle at var(--mx, 50%) var(--my, 50%),
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(255, 255, 255, 0.12) 38%,
+    transparent 65%
+  );
+  transition: opacity 0.3s ease;
+}
+
+/* ───────── الكارت أثناء الميل (بيتفعّل بالـ JS على الماوس بس) ───────── */
+.card.t3d {
+  transform: perspective(var(--t3d-perspective)) rotateX(var(--rx, 0deg))
+    rotateY(var(--ry, 0deg)) translateZ(0);
+  box-shadow:
+    var(--sx, 0px) var(--sy, 14px) 30px -8px rgba(15, 17, 17, 0.34),
+    0 2px 6px rgba(15, 17, 17, 0.12);
+  border-color: var(--primary-mid, #d5d9d9);
+  will-change: transform;
+  transition:
+    transform 0.12s ease-out,
+    box-shadow 0.12s ease-out;
+}
+.card.t3d.t3d-leave {
+  transition:
+    transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.55s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.card.t3d .card-img-wrap::after {
+  opacity: 1;
+}
+.card.t3d .card-img-wrap img {
+  transform: translate3d(calc(var(--px, 0) * -9px), calc(var(--py, 0) * -9px), 0) scale(1.07);
+  filter: drop-shadow(calc(var(--px, 0) * 8px) calc(14px + var(--py, 0) * 6px) 12px rgba(15, 17, 17, 0.34));
+  transition:
+    transform 0.12s ease-out,
+    filter 0.12s ease-out,
+    opacity 0.35s ease;
+}
+.card.t3d.t3d-leave .card-img-wrap img {
+  transition:
+    transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1),
+    filter 0.55s ease,
+    opacity 0.35s ease;
+}
+
+/* ───────── اللمس: شكل عمق ثابت بدون ميل ───────── */
+@media (hover: none), (pointer: coarse) {
+  .card-img-wrap img {
+    filter: drop-shadow(0 8px 8px rgba(15, 17, 17, 0.26));
+  }
+  .card {
+    box-shadow: 0 6px 14px -6px rgba(15, 17, 17, 0.28);
+  }
+}
+
+/* ───────── معرض التفاصيل (الصورة الكبيرة) ───────── */
+.modal-gallery-main {
+  perspective: 1000px;
+}
+.modal-gallery-main img.mgm-img {
+  filter: drop-shadow(0 18px 18px rgba(15, 17, 17, 0.32));
+}
+.modal-gallery-main.t3d img.mgm-img.active {
+  transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) scale(1.04);
+  transition:
+    transform 0.12s ease-out,
+    opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.modal-gallery-main.t3d.t3d-leave img.mgm-img.active {
+  transition:
+    transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ───────── احترام إعداد تقليل الحركة ───────── */
+@media (prefers-reduced-motion: reduce) {
+  .card.t3d,
+  .card.t3d .card-img-wrap img,
+  .modal-gallery-main.t3d img.mgm-img.active {
+    transform: none !important;
+    transition: none !important;
+  }
+  .card-img-wrap::after {
+    display: none;
+  }
+}

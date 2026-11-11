@@ -9,6 +9,9 @@
    - ترتيب صور الصنف (أو صور اللون لو الصنف له ألوان): 1 = وجه، 2 = ظهر، 3 = جنب.
      (الترتيب ده بيتغيّر من CFG.order لو عندك ترتيب تاني).
    - الأيقونات SVG مدمجة (الموقع بيحمّل subset من أيقونات Tabler، مش كلها موجودة فيه).
+   4) حركة زي الفيديو: القطع بتنزل على الشماعة بتأرجح، القطعة اللي عليها الماوس بتترفع واللي جنبها بتتزحزح،
+      والضغط عليها بيطيّرها من مكانها لنص الشاشة (والخلفية بتتغبّش) وبتتأرجح زي البندول،
+      وتبديل الوجه/الظهر بقلب 3D. بترجع لمكانها عند الإغلاق. كل ده بيقف مع prefers-reduced-motion.
    بيشتغل فوق الكتالوج من غير ما يغيّر منطقه (زي features.js / media.js).
    ═══════════════════════════════════════════════════════════════ */
 (function () {
@@ -78,6 +81,19 @@
     CFG.order.forEach(function (k, i) { if (list[i]) f[k] = list[i]; });
     return f;
   }
+  /* صورة مقصوصة (PNG شفاف)؟ بنفحص أركانها — لو شفافة بنشيل الكارت الأبيض وتتعلّق على الشماعة زي ما هي.
+     الفحص بيشتغل بس على الصور من نفس الدومين (/api/img)؛ لو الصورة اتحمّلت من Google مباشرة بنعاملها كصورة عادية. */
+  function hasAlpha(im) {
+    try {
+      var c = document.createElement("canvas");
+      c.width = 16; c.height = 20;
+      var x = c.getContext("2d", { willReadFrequently: true });
+      x.drawImage(im, 0, 0, 16, 20);
+      var d = x.getImageData(0, 0, 16, 20).data, hit = 0;
+      [[0, 0], [15, 0], [0, 19], [15, 19]].forEach(function (o) { if (d[(o[1] * 16 + o[0]) * 4 + 3] < 30) hit++; });
+      return hit >= 3;
+    } catch (e) { return false; }
+  }
   function coverOf(it) {
     if (it.image_url) return it.image_url;
     var cs = colorsOf(it);
@@ -114,8 +130,8 @@
     vEl.innerHTML =
       '<div class="hg-vbox">' +
       '<div class="hg-bar"><b id="hg-vtitle"></b><button type="button" class="hg-x" data-h="vclose" aria-label="إغلاق">' + ic("x", 20) + "</button></div>" +
-      '<div class="hg-stage" id="hg-stage"><div class="hg-swing" id="hg-swing">' + HANGER_SVG +
-      '<div class="hg-card" id="hg-card"><img id="hg-img" alt="" draggable="false"></div></div><div class="hg-floor"></div></div>' +
+      '<div class="hg-stage" id="hg-stage"><div class="hg-fly" id="hg-fly"><div class="hg-swing" id="hg-swing">' + HANGER_SVG +
+      '<div class="hg-card" id="hg-card"><img id="hg-img" alt="" draggable="false"></div></div></div><div class="hg-floor"></div></div>' +
       '<div class="hg-angles" id="hg-angles" role="group" aria-label="زاوية العرض"></div>' +
       '<div class="hg-hint" id="hg-hint"></div>' +
       '<div class="hg-colors" id="hg-colors"></div>' +
@@ -123,15 +139,16 @@
       '<button type="button" class="hg-main" id="hg-main" data-h="detail"></button>' +
       "</div>";
     document.body.appendChild(vEl);
+    $("hg-img").addEventListener("load", function () { $("hg-card").classList.toggle("cut", hasAlpha(this)); });
 
     vEl.addEventListener("click", function (e) {
-      if (e.target === vEl) return closeViewer();
+      if (e.target === vEl) return closeViewer(true);
       var b = e.target.closest("[data-h],[data-a],[data-c]");
       if (!b || b.disabled) return;
       if (b.hasAttribute("data-a")) return setFace(b.getAttribute("data-a"));
       if (b.hasAttribute("data-c")) return setColor(Number(b.getAttribute("data-c")));
       var h = b.getAttribute("data-h");
-      if (h === "vclose") closeViewer();
+      if (h === "vclose") closeViewer(true);
       else if (h === "detail") goDetail();
     });
 
@@ -154,9 +171,10 @@
       var dx = e.clientX - drag.x;
       drag = null;
       swing.classList.remove("hold");
-      card.style.transition = "transform .25s ease-out";
+      card.style.transition = "transform .45s cubic-bezier(.2,1.4,.4,1)";
       card.style.transform = "rotateY(0deg)";
       if (Math.abs(dx) > 45) step(dx < 0 ? 1 : -1);
+      else nudge(Math.max(-6, Math.min(6, dx / 12)), 900);
     }
     stage.addEventListener("pointerup", end);
     stage.addEventListener("pointercancel", end);
@@ -169,7 +187,20 @@
     var av = availableAngles();
     if (av.length < 2) return;
     var i = av.indexOf(V.angle);
-    setFace(av[(i + dir + av.length) % av.length]);
+    setFace(av[(i + dir + av.length) % av.length], false, dir);
+  }
+
+  /* دفعة بندول فوق التأرجح الدايم (composite:add عشان ما تقطعش الأنيميشن بتاع CSS) */
+  function nudge(deg, dur) {
+    var sw = $("hg-swing");
+    if (REDUCE || !sw || !sw.animate) return;
+    try {
+      sw.animate(
+        [{ transform: "rotate(" + deg + "deg)" }, { transform: "rotate(" + (-deg * 0.6) + "deg)" },
+         { transform: "rotate(" + (deg * 0.32) + "deg)" }, { transform: "rotate(" + (-deg * 0.12) + "deg)" }, { transform: "rotate(0deg)" }],
+        { duration: dur || 1100, easing: "ease-out", composite: "add" }
+      );
+    } catch (e) {}
   }
 
   function renderAngles() {
@@ -207,25 +238,28 @@
     im.src = url;
   }
 
-  function setFace(a, instant) {
+  function setFace(a, instant, dir) {
     if (!V.faces[a]) return;
-    var token = ++V.tok;
+    var token = ++V.tok, prev = V.angle;
+    if (dir == null) dir = CFG.rotation.indexOf(a) >= CFG.rotation.indexOf(prev) ? 1 : -1;
     V.angle = a;
     renderAngles();
     loadFace(photo(V.faces[a], CFG.viewW), token, function (url) {
       var im = $("hg-img"), card = $("hg-card");
       if (instant || REDUCE) { im.src = url; return; }
-      card.style.transition = "transform .16s ease-in";
-      card.style.transform = "rotateY(88deg)";
+      /* قلب 3D: الكارت بيلف لحد الحافة، بيبدّل الصورة، وبيكمّل لفة بارتداد خفيف + دفعة بندول */
+      nudge(dir * 5, 1200);
+      card.style.transition = "transform .17s ease-in";
+      card.style.transform = "rotateY(" + dir * 90 + "deg)";
       setTimeout(function () {
         if (token !== V.tok) return;
         im.src = url;
         card.style.transition = "none";
-        card.style.transform = "rotateY(-88deg)";
+        card.style.transform = "rotateY(" + -dir * 90 + "deg)";
         void card.offsetWidth;
-        card.style.transition = "transform .22s ease-out";
+        card.style.transition = "transform .45s cubic-bezier(.2,1.35,.4,1)";
         card.style.transform = "rotateY(0deg)";
-      }, 160);
+      }, 170);
     });
   }
 
@@ -239,12 +273,45 @@
     setFace(V.faces[V.angle] ? V.angle : "front", instant);
   }
 
-  function openViewer(code, from) {
+  /* ───── طيران القطعة من مكانها على الشماعة لنص الشاشة (FLIP) وعكسه ───── */
+  var vTimer = 0;
+  function inView(el) {
+    var r = el.getBoundingClientRect();
+    return r.width > 0 && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth;
+  }
+  function flyIn(src) {
+    var fly = $("hg-fly"), box = vEl.querySelector(".hg-vbox");
+    fly.style.transition = "none";
+    fly.style.transform = "";
+    if (REDUCE || !src || !src.isConnected) return false;
+    var a = src.getBoundingClientRect(), b = fly.getBoundingClientRect();
+    if (!a.width || !b.width) return false;
+    fly.style.transformOrigin = "0 0";
+    fly.style.transform = "translate(" + (a.left - b.left) + "px," + (a.top - b.top) + "px) scale(" + a.width / b.width + ")";
+    box.classList.add("hg-flying");
+    void fly.offsetWidth;
+    fly.style.transition = "transform .62s cubic-bezier(.2,.95,.3,1.06)";
+    fly.style.transform = "translate(0px,0px) scale(1)";
+    clearTimeout(vTimer);
+    vTimer = setTimeout(function () {
+      box.classList.remove("hg-flying");
+      fly.style.transition = "";
+      fly.style.transform = "";
+    }, 700);
+    return true;
+  }
+
+  function openViewer(code, from, hangEl) {
     var it = findItem(code);
     if (!it || !coverOf(it)) return;
     buildViewer();
+    clearTimeout(vTimer);
+    if (V.srcHang) V.srcHang.classList.remove("hg-picked");
+    V.closing = false;
+    vEl.classList.remove("hg-out");
     V.it = it;
     V.from = from || "rack";
+    V.srcHang = V.from === "rack" && hangEl && hangEl.isConnected ? hangEl : null;
     V.colors = colorsOf(it);
     V.angle = "front";
     var start = -1, sel = from === "drawer" && window._modalState ? _modalState.selectedColor : "";
@@ -258,20 +325,60 @@
     $("hg-vprice").hidden = !pr;
     $("hg-main").innerHTML = (V.from === "drawer" ? "رجوع لتفاصيل الصنف" : ic("cart", 16) + " التفاصيل واختيار المقاس");
 
+    /* الصورة المصغّرة (اللي اتحمّلت في الشماعة) تظهر فورًا وتتبدّل بالكبيرة لما تجهز */
+    $("hg-img").src = photo(coverOf(it), CFG.thumbW);
+    $("hg-card").style.transition = "none";
+    $("hg-card").style.transform = "";
+
     vFocus = document.activeElement;
     vEl.hidden = false;
     document.documentElement.classList.add("hg-lock");
     setColor(start, true);
+    var flew = false;
+    if (V.srcHang) {
+      var sw = V.srcHang.querySelector(".hg-sw");
+      flew = flyIn(sw);
+      if (flew) V.srcHang.classList.add("hg-picked");
+    }
+    setTimeout(function () { if (!vEl.hidden && !V.closing) nudge(7, 1800); }, flew ? 480 : 120);
     var x = vEl.querySelector(".hg-x");
-    if (x) x.focus();
+    if (x) x.focus({ preventScroll: true });
   }
 
-  function closeViewer() {
-    if (!vEl || vEl.hidden) return;
+  function finishClose() {
+    clearTimeout(vTimer);
+    V.closing = false;
     V.tok++;
     vEl.hidden = true;
+    vEl.classList.remove("hg-out");
+    var fly = $("hg-fly");
+    vEl.querySelector(".hg-vbox").classList.remove("hg-flying");
+    fly.style.transition = "";
+    fly.style.transform = "";
+    if (V.srcHang) { V.srcHang.classList.remove("hg-picked"); V.srcHang = null; }
     if (!rEl || rEl.hidden) document.documentElement.classList.remove("hg-lock");
-    if (vFocus && vFocus.focus) { try { vFocus.focus(); } catch (e) {} }
+    if (vFocus && vFocus.focus) { try { vFocus.focus({ preventScroll: true }); } catch (e) {} }
+  }
+
+  /* animate === true → القطعة بترجع لمكانها على الشماعة؛ غير كده الإغلاق فوري */
+  function closeViewer(animate) {
+    if (!vEl || vEl.hidden) return;
+    if (V.closing) { if (animate !== true) finishClose(); return; }
+    var sw = V.srcHang && V.srcHang.isConnected ? V.srcHang.querySelector(".hg-sw") : null;
+    if (animate === true && !REDUCE && sw && inView(sw)) {
+      V.closing = true;
+      V.tok++;
+      var fly = $("hg-fly"), a = sw.getBoundingClientRect(), b = fly.getBoundingClientRect();
+      vEl.querySelector(".hg-vbox").classList.add("hg-flying");
+      vEl.classList.add("hg-out");
+      fly.style.transformOrigin = "0 0";
+      fly.style.transition = "transform .42s cubic-bezier(.5,0,.3,1)";
+      fly.style.transform = "translate(" + (a.left - b.left) + "px," + (a.top - b.top) + "px) scale(" + a.width / b.width + ")";
+      clearTimeout(vTimer);
+      vTimer = setTimeout(finishClose, 440);
+      return;
+    }
+    finishClose();
   }
 
   function goDetail() {
@@ -310,6 +417,11 @@
       '<div class="hg-chips" id="hg-chips"></div><div class="hg-rbody" id="hg-rbody"></div>';
     document.body.appendChild(rEl);
 
+    rEl.addEventListener("load", function (e) {
+      var im = e.target;
+      if (im && im.tagName === "IMG" && im.parentNode && im.parentNode.classList.contains("hg-ph")) im.parentNode.classList.toggle("cut", hasAlpha(im));
+    }, true);
+
     /* فشل البروكسي → جرّب Google مباشرة مرة واحدة، وبعدها نخفّف الصورة */
     rEl.addEventListener("error", function (e) {
       var im = e.target;
@@ -321,7 +433,7 @@
     rEl.addEventListener("click", function (e) {
       var t = e.target.closest("[data-r],[data-code],[data-g],[data-more]");
       if (!t) return;
-      if (t.hasAttribute("data-code")) return openViewer(t.getAttribute("data-code"), "rack");
+      if (t.hasAttribute("data-code")) return openViewer(t.getAttribute("data-code"), "rack", t);
       if (t.hasAttribute("data-g")) { R.group = t.getAttribute("data-g"); return renderRack(); }
       if (t.hasAttribute("data-more")) { R.expanded[t.getAttribute("data-more")] = true; return renderRack(); }
       var r = t.getAttribute("data-r");
@@ -332,7 +444,7 @@
 
   function hangHtml(it, i) {
     var pr = priceHtml(it), out = stockOut(it);
-    return '<button type="button" class="hg-hang' + (out ? " is-out" : "") + '" data-code="' + esc(it.code || it.id) + '" style="--d:' + ((i % 7) * -0.7).toFixed(1) + 's">' +
+    return '<button type="button" class="hg-hang' + (out ? " is-out" : "") + '" data-code="' + esc(it.code || it.id) + '" style="--d:' + ((i % 7) * -0.7).toFixed(1) + 's;--e:' + (Math.min(i, 14) * 0.07).toFixed(2) + 's">' +
       '<span class="hg-sw">' + HANGER_SVG + '<span class="hg-ph"><img loading="lazy" decoding="async" draggable="false" alt="" src="' + esc(photo(coverOf(it), CFG.thumbW)) + '"></span></span>' +
       '<span class="hg-nm">' + esc(it.name || it.code || "") + "</span>" +
       (out ? '<span class="hg-tag">نفذ</span>' : pr ? '<span class="hg-pr">' + esc(pr) + "</span>" : "") +
@@ -393,7 +505,7 @@
 
   document.addEventListener("keydown", function (e) {
     if (vEl && !vEl.hidden) {
-      if (e.key === "Escape") { e.stopPropagation(); closeViewer(); }
+      if (e.key === "Escape") { e.stopPropagation(); closeViewer(true); }
       else if (e.key === "ArrowLeft") step(1);
       else if (e.key === "ArrowRight") step(-1);
     } else if (rEl && !rEl.hidden && e.key === "Escape") closeRack();

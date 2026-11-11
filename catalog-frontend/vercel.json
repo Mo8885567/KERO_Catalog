@@ -138,6 +138,9 @@
     },
     "api/tryon.js": {
       "maxDuration": 60
+    },
+    "api/genviews.js": {
+      "maxDuration": 60
     }
   }
 }

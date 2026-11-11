@@ -1508,6 +1508,17 @@ tbody tr.off {
   inset: 0;
   background: rgba(255, 255, 255, 0.7) center/22px no-repeat;
 }
+.gen-box { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface2); padding: 12px; }
+.gen-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+.gen-tile { position: relative; aspect-ratio: 3 / 4; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; display: grid; place-items: center; text-align: center; font-size: 12px; color: var(--text2);
+  background: repeating-conic-gradient(#cfd5db 0% 25%, #fff 0% 50%) 50% / 14px 14px; }
+:root[data-theme="dark"] .gen-tile { background: repeating-conic-gradient(#3a4654 0% 25%, #28323e 0% 50%) 50% / 14px 14px; }
+.gen-tile img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.gen-tile .gl { position: absolute; bottom: 0; inset-inline: 0; padding: 3px 4px; background: rgba(15, 17, 17, 0.72); color: #fff; font-size: 11.5px; display: flex; justify-content: space-between; align-items: center; gap: 4px; }
+.gen-tile .gl button { background: rgba(255, 255, 255, 0.18); color: #fff; border: 0; border-radius: 4px; padding: 1px 6px; font: inherit; cursor: pointer; }
+.gen-tile.err { color: #b91c1c; padding: 6px; }
+.gen-tile .spin { width: 22px; height: 22px; border: 3px solid rgba(0, 0, 0, 0.15); border-top-color: var(--accent); border-radius: 50%; animation: gen-spin 0.8s linear infinite; }
+@keyframes gen-spin { to { transform: rotate(360deg); } }
 .upload-status {
   font-size: 12.5px;
   color: var(--text2);
@@ -2361,6 +2372,18 @@ html[data-theme="dark"] .toast.err {
                       <button type="button" class="btn btn-sm" onclick="addExtraImageUrl()"><i class="ti ti-link"></i> إضافة رابط</button>
                     </div>
                     <div class="upload-status" id="extraUploadStatus"></div>
+                  </div>
+                  <div class="form-field" style="margin-top: 14px">
+                    <label><i class="ti ti-sparkles"></i> إنشاء الوجه والظهر والجنب بالذكاء الاصطناعي <span class="sub">(Gemini — صور مقصوصة بخلفية شفافة)</span></label>
+                    <div class="gen-box">
+                      <div class="field-note">بياخد الصورة الرئيسية ويعمل منها 3 صور للقطعة لوحدها: وجه، ظهر، جنب. راجع النتيجة وبعدين اضغط «اعتماد».</div>
+                      <div class="color-actions" style="margin-top: 8px">
+                        <button type="button" class="btn btn-sm" id="genBtn" onclick="genStart()"><i class="ti ti-wand"></i> إنشاء الصور</button>
+                        <button type="button" class="btn btn-sm btn-primary" id="genApplyBtn" onclick="genApply()" hidden><i class="ti ti-check"></i> اعتماد الصور الثلاث</button>
+                      </div>
+                      <div class="gen-grid" id="genGrid" hidden></div>
+                      <div class="upload-status" id="genStatus"></div>
+                    </div>
                   </div>
                   <div class="form-field" style="margin-top: 14px">
                     <label>الألوان وصور كل لون <span class="sub">(اختياري)</span></label>
@@ -4003,6 +4026,7 @@ function openItemModal(id, duplicate) {
   currentColors = [];
   currentSizes = [];
   currentExtraImages = [];
+  genReset();
 
   if (it) {
     $("itemModalTitle").textContent = duplicate ? "نسخ صنف" : "تعديل صنف";
@@ -5322,6 +5346,299 @@ function uploadColorImages(ci) {
       if (st2) st2.textContent = msg;
       updatePreview();
     });
+  });
+}
+
+// ===== إنشاء الوجه / الظهر / الجنب بالذكاء الاصطناعي (Gemini) + قص الخلفية =====
+// 1) /api/genviews بيولّد كل زاوية بخلفية ماجنتا مسطّحة  2) هنا بنقص الخلفية ونطلّع PNG شفاف
+// 3) «اعتماد» بيرفع الـ3 PNG على Drive: الوجه = الصورة الرئيسية، الظهر ثم الجنب = أول صورتين إضافيتين
+//    (ده الترتيب اللي الشماعة بتقراه: 1 وجه، 2 ظهر، 3 جنب). الصورة الأصلية بتفضل في الإضافية.
+var GEN = { run: 0, busy: false, res: {}, err: {}, pending: {}, srcId: "", srcUrl: "" };
+var GEN_VIEWS = ["front", "back", "side"];
+var GEN_LABEL = { front: "الوجه", back: "الظهر", side: "الجنب" };
+
+function genReset() {
+  GEN.run++;
+  GEN.busy = false;
+  GEN.res = {};
+  GEN.err = {};
+  GEN.pending = {};
+  GEN.srcId = "";
+  if ($("genGrid")) {
+    $("genGrid").hidden = true;
+    $("genGrid").innerHTML = "";
+    $("genApplyBtn").hidden = true;
+    $("genStatus").textContent = "";
+    $("genBtn").disabled = false;
+  }
+}
+function _driveIdOf(u) {
+  var m = /googleusercontent\.com\/d\/([\w-]{10,100})/.exec(u || "") || /[?&]id=([\w-]{10,100})/.exec(u || "") || /\/file\/d\/([\w-]{10,100})/.exec(u || "");
+  return m ? m[1] : "";
+}
+function genRender() {
+  var g = $("genGrid");
+  g.hidden = false;
+  g.innerHTML = GEN_VIEWS.map(function (v) {
+    var r = GEN.res[v], e = GEN.err[v], busy = GEN.pending[v];
+    var body = r ? '<img src="' + r.png + '" alt="' + GEN_LABEL[v] + '">' : busy ? '<span class="spin"></span>' : e ? "<span>" + esc(e) + "</span>" : "<span>—</span>";
+    var again = !busy && (r || e) ? '<button type="button" onclick="genOne(\'' + v + '\')">إعادة</button>' : "";
+    return '<div class="gen-tile' + (e && !r ? " err" : "") + '">' + body + '<div class="gl"><span>' + GEN_LABEL[v] + "</span>" + again + "</div></div>";
+  }).join("");
+  var all = GEN_VIEWS.every(function (v) { return GEN.res[v]; });
+  $("genApplyBtn").hidden = !all || GEN.busy;
+}
+
+// بيصغّر صورة الوجه (JPEG) كمرجع للظهر/الجنب عشان الطلب يفضل خفيف
+function _genRefOf(rawDataUrl) {
+  return new Promise(function (resolve) {
+    var im = new Image();
+    im.onload = function () {
+      var s = Math.min(1, 900 / Math.max(im.naturalWidth, im.naturalHeight));
+      var c = document.createElement("canvas");
+      c.width = Math.round(im.naturalWidth * s);
+      c.height = Math.round(im.naturalHeight * s);
+      c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
+      resolve(c.toDataURL("image/jpeg", 0.88));
+    };
+    im.onerror = function () { resolve(""); };
+    im.src = rawDataUrl;
+  });
+}
+function _genCall(view, ref) {
+  return fetch("/api/genviews", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token: PW, productId: GEN.srcId, view: view, ref: ref || undefined }),
+  }).then(function (r) {
+    return r.json().catch(function () { return {}; }).then(function (j) {
+      if (r.status === 401) { forceLogin("الجلسة انتهت، سجّل دخولك تاني"); throw new Error("الجلسة انتهت"); }
+      if (!r.ok || !j.success) throw new Error(j.error || "فشل الإنشاء (" + r.status + ")");
+      return j.image;
+    });
+  });
+}
+function _genDo(view, run) {
+  GEN.pending[view] = true;
+  delete GEN.err[view];
+  genRender();
+  var ref = view === "front" || !GEN.res.front ? "" : GEN.res.front.ref;
+  return _genCall(view, ref)
+    .then(function (raw) {
+      return cutoutFromDataUrl(raw).then(function (png) {
+        if (run !== GEN.run) return;
+        var entry = { png: png, ref: "" };
+        GEN.res[view] = entry;
+        if (view === "front") return _genRefOf(raw).then(function (r) { entry.ref = r; });
+      });
+    })
+    .catch(function (e) {
+      if (run === GEN.run) GEN.err[view] = e.message || "فشل";
+    })
+    .then(function () {
+      if (run !== GEN.run) return;
+      delete GEN.pending[view];
+      genRender();
+    });
+}
+function genStart() {
+  if (GEN.busy) return;
+  var src = $("f_image_url").value.trim() || currentExtraImages[0] || "";
+  var id = _driveIdOf(src);
+  if (!id) return showToast("ارفع الصورة الرئيسية من الجهاز الأول (مش رابط خارجي)", true);
+  var run = ++GEN.run;
+  GEN.busy = true;
+  GEN.res = {};
+  GEN.err = {};
+  GEN.pending = {};
+  GEN.srcId = id;
+  $("genBtn").disabled = true;
+  $("genStatus").textContent = "بيتولّد الوجه الأول... ممكن ياخد لحد دقيقة";
+  genRender();
+  _genDo("front", run).then(function () {
+    if (run !== GEN.run) return;
+    if (!GEN.res.front) {
+      GEN.busy = false;
+      $("genBtn").disabled = false;
+      $("genStatus").textContent = GEN.err.front || "فشل إنشاء الوجه";
+      return genRender();
+    }
+    $("genStatus").textContent = "بيتولّد الظهر والجنب...";
+    return Promise.all([_genDo("back", run), _genDo("side", run)]).then(function () {
+      if (run !== GEN.run) return;
+      GEN.busy = false;
+      $("genBtn").disabled = false;
+      var ok = GEN_VIEWS.every(function (v) { return GEN.res[v]; });
+      $("genStatus").textContent = ok ? "جاهزين — راجعهم واضغط «اعتماد»، أو «إعادة» لأي صورة مش عاجباك" : "في صورة فشلت — اضغط «إعادة» عليها";
+      genRender();
+    });
+  });
+}
+function genOne(view) {
+  if (GEN.busy || GEN.pending[view] || !GEN.srcId) return;
+  if (view !== "front" && !GEN.res.front) return showToast("لازم الوجه يتولّد الأول", true);
+  var run = GEN.run;
+  GEN.busy = true;
+  $("genBtn").disabled = true;
+  _genDo(view, run).then(function () {
+    if (run !== GEN.run) return;
+    GEN.busy = false;
+    $("genBtn").disabled = false;
+    genRender();
+  });
+}
+function _uploadPng(dataUrl, name) {
+  return api("adminUploadImage", PW, { data: dataUrl, mime: "image/png", name: name }).then(function (res) {
+    if (!res || !res.success) throw new Error((res && res.message) || "فشل رفع الصورة");
+    return res.url;
+  });
+}
+function genApply() {
+  if (GEN.busy || !GEN_VIEWS.every(function (v) { return GEN.res[v]; })) return;
+  var run = GEN.run;
+  GEN.busy = true;
+  $("genBtn").disabled = true;
+  $("genApplyBtn").hidden = true;
+  var code = ($("f_code").value || "item").replace(/[^\w-]+/g, "_").slice(0, 30);
+  var urls = {};
+  var chain = Promise.resolve();
+  uploadsInFlight++;
+  GEN_VIEWS.forEach(function (v, i) {
+    chain = chain.then(function () {
+      $("genStatus").textContent = "جاري رفع " + (i + 1) + " من 3...";
+      return _uploadPng(GEN.res[v].png, "ai_" + code + "_" + v).then(function (u) { urls[v] = u; });
+    });
+  });
+  chain
+    .then(function () {
+      uploadsInFlight--;
+      if (run !== GEN.run) return;
+      var original = $("f_image_url").value.trim();
+      var rest = currentExtraImages.filter(function (u) { return u && u !== original && _driveIdOf(u) !== GEN.srcId; });
+      $("f_image_url").value = urls.front;
+      currentExtraImages = [urls.back, urls.side].concat(original ? [original] : []).concat(rest);
+      modalDirty = true;
+      renderExtraImages();
+      updatePreview();
+      GEN.busy = false;
+      $("genBtn").disabled = false;
+      $("genStatus").textContent = "اتعتمدوا ✔ (الوجه رئيسية، بعدها الظهر والجنب). متنساش تدوس «حفظ».";
+      showToast("اتضافت الصور الثلاث — احفظ الصنف");
+    })
+    .catch(function (err) {
+      uploadsInFlight--;
+      if (run !== GEN.run) return;
+      GEN.busy = false;
+      $("genBtn").disabled = false;
+      $("genApplyBtn").hidden = false;
+      $("genStatus").textContent = "فشل الرفع: " + err.message;
+      showToast(err.message, true);
+    });
+}
+
+/* قص الخلفية: الخلفية الماجنتا المتصلة بحواف الصورة → شفافة، مع حواف ناعمة وإزالة الانعكاس الورداني.
+   بعدين بنقص حوالين القطعة ونحطها في كانفس 3:4 ثابت عشان الـ3 زوايا يبقوا بنفس المقاس. */
+function cutoutFromDataUrl(src) {
+  return new Promise(function (resolve, reject) {
+    var im = new Image();
+    im.onerror = function () { reject(new Error("الصورة المولّدة تالفة")); };
+    im.onload = function () {
+      try {
+        var s = Math.min(1, 1400 / Math.max(im.naturalWidth, im.naturalHeight));
+        var w = Math.max(16, Math.round(im.naturalWidth * s)), h = Math.max(16, Math.round(im.naturalHeight * s));
+        var c = document.createElement("canvas");
+        c.width = w; c.height = h;
+        var x = c.getContext("2d", { willReadFrequently: true });
+        x.drawImage(im, 0, 0, w, h);
+        var d = x.getImageData(0, 0, w, h), p = d.data, n = w * h;
+        // لون الخلفية من أركان الصورة، ولازم يكون ماجنتا موحّد
+        var cs = [[0, 0], [w - 6, 0], [0, h - 6], [w - 6, h - 6]].map(function (o) {
+          var r = 0, g = 0, b = 0;
+          for (var yy = 0; yy < 6; yy++) for (var xx = 0; xx < 6; xx++) { var i = ((o[1] + yy) * w + o[0] + xx) * 4; r += p[i]; g += p[i + 1]; b += p[i + 2]; }
+          return [r / 36, g / 36, b / 36];
+        });
+        var kr = 0, kg = 0, kb = 0;
+        cs.forEach(function (k) { kr += k[0] / 4; kg += k[1] / 4; kb += k[2] / 4; });
+        var uniform = cs.every(function (k) { return Math.abs(k[0] - kr) < 30 && Math.abs(k[1] - kg) < 30 && Math.abs(k[2] - kb) < 30; });
+        if (!uniform || !(kr > 160 && kb > 160 && kg < 120)) return reject(new Error("Gemini ماعملش خلفية موحّدة — اضغط «إعادة»"));
+        var T2 = 60 * 60, F2 = 135 * 135;
+        var dist = new Float32Array(n);
+        for (var q = 0, i4 = 0; q < n; q++, i4 += 4) {
+          var dr = p[i4] - kr, dg = p[i4 + 1] - kg, db = p[i4 + 2] - kb;
+          dist[q] = dr * dr + dg * dg + db * db;
+        }
+        // حالات البكسل: 0 لسه، 1 خلفية، 3 جزء من القطعة (مكوّن ماجنتا صغير)
+        var bg = new Uint8Array(n), stack = new Int32Array(n), comp = new Int32Array(n);
+        function floodFrom(seedList) {
+          var sp = 0, cnt = 0;
+          seedList.forEach(function (sq) { if (!bg[sq] && dist[sq] <= T2) { bg[sq] = 2; stack[sp++] = sq; } });
+          while (sp) {
+            var cq = stack[--sp];
+            comp[cnt++] = cq;
+            var cx = cq % w, cy = (cq / w) | 0;
+            if (cx > 0 && !bg[cq - 1] && dist[cq - 1] <= T2) { bg[cq - 1] = 2; stack[sp++] = cq - 1; }
+            if (cx < w - 1 && !bg[cq + 1] && dist[cq + 1] <= T2) { bg[cq + 1] = 2; stack[sp++] = cq + 1; }
+            if (cy > 0 && !bg[cq - w] && dist[cq - w] <= T2) { bg[cq - w] = 2; stack[sp++] = cq - w; }
+            if (cy < h - 1 && !bg[cq + w] && dist[cq + w] <= T2) { bg[cq + w] = 2; stack[sp++] = cq + w; }
+          }
+          return cnt;
+        }
+        function commit(cnt, val) { for (var z = 0; z < cnt; z++) bg[comp[z]] = val; }
+        var seeds = [];
+        for (var a = 0; a < w; a++) { seeds.push(a, (h - 1) * w + a); }
+        for (var b2 = 0; b2 < h; b2++) { seeds.push(b2 * w, b2 * w + w - 1); }
+        commit(floodFrom(seeds), 1);
+        // فتحات مقفولة جوه القطعة (بين الدراع والجسم مثلًا): لو كبيرة وماجنتا → تتشال برضو
+        var minHole = Math.max(300, (n * 0.002) | 0);
+        for (var q2 = 0; q2 < n; q2++) {
+          if (!bg[q2] && dist[q2] <= T2) {
+            var cnt2 = floodFrom([q2]);
+            commit(cnt2, cnt2 >= minHole ? 1 : 3);
+          }
+        }
+        // alpha + حواف ناعمة (حلقة 2px حوالين الخلفية) + despill
+        var out = x.createImageData(w, h), o = out.data;
+        var minX = w, minY = h, maxX = -1, maxY = -1;
+        for (var yy2 = 0; yy2 < h; yy2++) {
+          for (var xx2 = 0; xx2 < w; xx2++) {
+            var qi = yy2 * w + xx2, ii = qi * 4;
+            if (bg[qi] === 1) { o[ii + 3] = 0; continue; }
+            var near = false;
+            for (var oy = -2; oy <= 2 && !near; oy++) {
+              var ny = yy2 + oy; if (ny < 0 || ny >= h) continue;
+              for (var ox = -2; ox <= 2; ox++) { var nx = xx2 + ox; if (nx < 0 || nx >= w) continue; if (bg[ny * w + nx] === 1) { near = true; break; } }
+            }
+            var r = p[ii], g = p[ii + 1], bl = p[ii + 2], al = 255;
+            if (near) {
+              var dd = dist[qi];
+              if (dd < F2) al = Math.round(255 * Math.max(0, Math.min(1, (Math.sqrt(dd) - 60) / (135 - 60))));
+              var ex = Math.min(r, bl) - g;
+              if (ex > 0) { r -= ex * 0.85; bl -= ex * 0.85; }
+            }
+            o[ii] = r; o[ii + 1] = g; o[ii + 2] = bl; o[ii + 3] = al;
+            if (al > 10) { if (xx2 < minX) minX = xx2; if (xx2 > maxX) maxX = xx2; if (yy2 < minY) minY = yy2; if (yy2 > maxY) maxY = yy2; }
+          }
+        }
+        if (maxX < 0 || (maxX - minX) < w * 0.1 || (maxY - minY) < h * 0.1) return reject(new Error("القطعة مش باينة بعد القص — اضغط «إعادة»"));
+        x.putImageData(out, 0, 0);
+        function render(W, H) {
+          var bw = maxX - minX + 1, bh = maxY - minY + 1;
+          var sc = Math.min((W * 0.92) / bw, (H * 0.92) / bh);
+          var oc = document.createElement("canvas");
+          oc.width = W; oc.height = H;
+          var ox2 = oc.getContext("2d");
+          ox2.imageSmoothingQuality = "high";
+          ox2.drawImage(c, minX, minY, bw, bh, (W - bw * sc) / 2, H * 0.035, bw * sc, bh * sc); /* متعلّقة من فوق (هامش 3.5%) عشان تقعد تحت الشماعة في الـ3 زوايا */
+          return oc.toDataURL("image/png");
+        }
+        var png = render(900, 1200);
+        if (png.length > 4300000) png = render(720, 960);
+        resolve(png);
+      } catch (e) {
+        reject(e);
+      }
+    };
+    im.src = src;
   });
 }
 

@@ -4400,6 +4400,7 @@
           clr.classList.toggle("visible", PUB.searchQ.length > 0);
           _render();
           _updateActiveFilterBar();
+          _scrollTopNow();
         });
         clr.addEventListener("click", function () {
           inp.value = "";
@@ -4407,6 +4408,7 @@
           clr.classList.remove("visible");
           _render();
           _updateActiveFilterBar();
+          _scrollTopNow();
           inp.focus();
         });
       }
@@ -4677,6 +4679,20 @@
         strip.innerHTML = html;
       }
 
+      /* اسكرول فوري لأول الصفحة عند تغيير المجموعة/الفلتر.
+         بنكرره بعد الرسم وبعد قفل الدرج (overflow بيرجع)، عشان المتصفح مايرجّعش المكان القديم */
+      function _scrollTopNow() {
+        var go = function () {
+          try { window.scrollTo({ top: 0, left: 0, behavior: "instant" }); }
+          catch (e) { window.scrollTo(0, 0); }
+          document.documentElement.scrollTop = 0;
+          document.body.scrollTop = 0;
+        };
+        go();
+        if (window.requestAnimationFrame) requestAnimationFrame(go);
+        setTimeout(go, 80);
+      }
+
       function setGroupFilter(g) {
         PUB.groupFilter = g;
         document.querySelectorAll(".nav-link").forEach(function (el) {
@@ -4689,6 +4705,7 @@
         _updateActiveFilterBar();
         // close mobile sidebar
         if (window.innerWidth <= 768) toggleMobileSidebar(true);
+        _scrollTopNow();
       }
 
       function setStatusFilter(s) {
@@ -4701,6 +4718,7 @@
           "status-pill" + (s === "low" ? " active-low" : "");
         _render();
         _updateActiveFilterBar();
+        _scrollTopNow();
       }
 
       function setView(v) {
@@ -4797,7 +4815,7 @@
         }
         if (PUB.searchQ) {
           chips.push(
-            "<span class=\"active-filter-chip\" onclick=\"document.getElementById('pub-search').value='';PUB.searchQ='';document.getElementById('search-clear-btn').classList.remove('visible');_render();\">" +
+            "<span class=\"active-filter-chip\" onclick=\"document.getElementById('pub-search').value='';PUB.searchQ='';document.getElementById('search-clear-btn').classList.remove('visible');_render();_updateActiveFilterBar();_scrollTopNow();\">" +
               "🔍 " +
               _esc(PUB.searchQ) +
               ' <span style="font-size:10px;opacity:.7">✕</span></span>',
@@ -5178,7 +5196,7 @@
         _updateFavUI();
         _render();
         _updateActiveFilterBar();
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        _scrollTopNow();
       }
       function _buildFavBar() {
         if (!PUB.favOnly) return "";
@@ -5223,6 +5241,7 @@
           PUB.dealsOnly = !!document.getElementById("pf-deals").checked;
           _render();
           _updateActiveFilterBar();
+          _scrollTopNow();
         }, 250);
       }
       function clearPriceFilter() {
@@ -5234,6 +5253,7 @@
         PUB.dealsOnly = false;
         _render();
         _updateActiveFilterBar();
+        _scrollTopNow();
       }
 
       /* ── تطبيع النص العربي للبحث (أ/إ/آ=ا، ة=ه، ى=ي، شيل التشكيل) ── */

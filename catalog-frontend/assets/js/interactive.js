@@ -67,7 +67,7 @@
     var tiles = PUB.groups.filter(function (g) { return by[g.id] && !g.hidden; }).map(function (g) {
       var c = by[g.id];
       var u = c.img ? (typeof _gridThumbUrl === "function" ? _gridThumbUrl(c.img) : c.img) : "";
-      return '<button class="cat-tile" onclick="setGroupFilter(\'' + esc(g.id) + '\');window.scrollTo({top:0,behavior:\'smooth\'})">' +
+      return '<button class="cat-tile" onclick="setGroupFilter(\'' + esc(g.id) + '\')">' +
         '<span class="cat-img">' + (u ? '<img src="' + esc(u) + '" loading="lazy" alt="">' : "📦") + "</span>" +
         '<span class="cat-name">' + esc(g.name) + '</span><span class="cat-count">' + c.n + " صنف</span></button>";
     });
@@ -200,7 +200,7 @@
       var it = e.target.closest(".mega-item"), gb = e.target.closest("[data-g]");
       mega.classList.remove("open"); megaFor = null;
       if (it && typeof openDrawer === "function") openDrawer(it.dataset.code);
-      else if (gb && typeof setGroupFilter === "function") { setGroupFilter(gb.dataset.g); window.scrollTo({ top: 0, behavior: "smooth" }); }
+      else if (gb && typeof setGroupFilter === "function") { setGroupFilter(gb.dataset.g); }
     });
     document.addEventListener("keydown", function (e) { if (e.key === "Escape") { mega.classList.remove("open"); megaFor = null; } });
   }

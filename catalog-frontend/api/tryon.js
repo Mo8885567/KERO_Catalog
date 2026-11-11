@@ -8,7 +8,8 @@
  *
  * الإعداد (Vercel → Settings → Environment Variables):
  *   GEMINI_API_KEY      مفتاح Google AI Studio (لازم) — من غيره الميزة بتتقفل تلقائيًا
- *   GEMINI_IMAGE_MODEL  اسم الموديل (اختياري، الافتراضي gemini-2.5-flash-image)
+ *   GEMINI_IMAGE_MODEL  اسم الموديل (اختياري، الافتراضي gemini-3.1-flash-image)
+ *                       gemini-2.5-flash-image اتقفل نهائيًا (2 أكتوبر 2026) وبيرجّع 404.
  *                       أسماء الموديلات بتتغيّر مع الوقت، فغيّرها من هنا من غير تعديل كود.
  *   TRYON_RATE_MAX      أقصى عدد محاولات لكل IP في الفترة (افتراضي 6)
  *   TRYON_RATE_WINDOW   الفترة بالدقايق (افتراضي 10)
@@ -23,7 +24,13 @@
  */
 
 const API_KEY = process.env.GEMINI_API_KEY || '';
-const MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image';
+/* الموديل المطلوب أولًا، وبعده بدائل لو رجّع 404 (موديل اتقفل/اتغيّر اسمه) */
+const MODELS = Array.from(new Set([
+  process.env.GEMINI_IMAGE_MODEL,
+  'gemini-3.1-flash-image',
+  'gemini-3.1-flash-image-preview',
+].filter(Boolean)));
+let MODEL = MODELS[0];
 const BASE = process.env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta';
 const RATE_MAX = Math.max(1, parseInt(process.env.TRYON_RATE_MAX, 10) || 6);
 const RATE_WINDOW_MS = Math.max(1, parseInt(process.env.TRYON_RATE_WINDOW, 10) || 10) * 60 * 1000;
@@ -105,11 +112,11 @@ async function fetchProduct(id) {
   }
 }
 
-async function callGemini(person, product) {
+async function callGeminiOnce(model, person, product) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 52000);
   try {
-    const r = await fetch(BASE + '/models/' + encodeURIComponent(MODEL) + ':generateContent', {
+    const r = await fetch(BASE + '/models/' + encodeURIComponent(model) + ':generateContent', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': API_KEY },
       body: JSON.stringify({
@@ -134,6 +141,23 @@ async function callGemini(person, product) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function callGemini(person, product) {
+  let last = null;
+  for (const m of MODELS) {
+    const out = await callGeminiOnce(m, person, product);
+    out.model = m;
+    if (out.status === 404) {
+      console.error('[tryon] model not found (404):', m, out.json && out.json.error && out.json.error.message);
+      last = out;
+      continue; /* جرّب البديل */
+    }
+    MODEL = m; /* افتكر الموديل الشغال للطلبات الجاية */
+    MODELS.splice(0, MODELS.length, m, ...MODELS.filter((x) => x !== m));
+    return out;
+  }
+  return last;
 }
 
 module.exports = async (req, res) => {
@@ -170,7 +194,10 @@ module.exports = async (req, res) => {
     return fail(res, timedOut ? 504 : 502, timedOut ? 'العملية أخدت وقت طويل. جرّب تاني.' : 'حصلت مشكلة في الاتصال. جرّب تاني.');
   }
 
-  if (out.status === 429) return fail(res, 429, 'الخدمة مشغولة دلوقتي. جرّب تاني بعد دقيقة.');
+    if (out.status === 429) {
+    console.error('[tryon] gemini 429 (quota/rate)', MODEL, out.json && out.json.error && out.json.error.message);
+    return fail(res, 429, 'الخدمة مشغولة دلوقتي. جرّب تاني بعد دقيقة.');
+  }
   if (out.status >= 400 || !out.json) {
     console.error('[tryon] gemini error', out.status, out.json && out.json.error && out.json.error.message);
     return fail(res, 502, 'الخدمة غير متاحة دلوقتي. جرّب تاني بعد شوية.');

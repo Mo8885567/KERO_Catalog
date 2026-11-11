@@ -16,7 +16,7 @@
  *
  * الإعداد (Vercel → Environment Variables):
  *   GEMINI_API_KEY       مطلوب (نفس مفتاح تجربة اللبس)
- *   GEMINI_IMAGE_MODEL   اختياري (الافتراضي gemini-2.5-flash-image)
+ *   GEMINI_IMAGE_MODEL   اختياري (الافتراضي gemini-3.1-flash-image؛ gemini-2.5-flash-image اتقفل وبيرجّع 404)
  *   GENVIEWS_RATE_MAX    أقصى عدد توليدات في الساعة (افتراضي 60)
  *   GAS_URL              زي api/gas.js
  * مقفول في وضع CATALOG_MODE=nopricing زي باقي الإدارة.
@@ -25,7 +25,12 @@
 const { NOPRICING } = require('./_mode');
 
 const API_KEY = process.env.GEMINI_API_KEY || '';
-const MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image';
+/* الموديل المطلوب أولًا، وبعده بدائل لو رجّع 404 (موديل اتقفل/اتغيّر اسمه) */
+const MODELS = Array.from(new Set([
+  process.env.GEMINI_IMAGE_MODEL,
+  'gemini-3.1-flash-image',
+  'gemini-3.1-flash-image-preview',
+].filter(Boolean)));
 const BASE = process.env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta';
 const GAS_URL =
   process.env.GAS_URL ||
@@ -137,12 +142,12 @@ async function fetchProduct(id) {
   }
 }
 
-async function callGemini(prompt, images) {
+async function callGeminiOnce(model, prompt, images) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 52000);
   try {
     const parts = [{ text: prompt }].concat(images.map((im) => ({ inlineData: { mimeType: im.mime, data: im.b64 } })));
-    const r = await fetch(BASE + '/models/' + encodeURIComponent(MODEL) + ':generateContent', {
+    const r = await fetch(BASE + '/models/' + encodeURIComponent(model) + ':generateContent', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': API_KEY },
       body: JSON.stringify({
@@ -158,6 +163,21 @@ async function callGemini(prompt, images) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function callGemini(prompt, images) {
+  let last = null;
+  for (const m of MODELS.slice()) {
+    const out = await callGeminiOnce(m, prompt, images);
+    if (out.status === 404) {
+      console.error('[genviews] model not found (404):', m, out.json && out.json.error && out.json.error.message);
+      last = out;
+      continue;
+    }
+    MODELS.splice(0, MODELS.length, m, ...MODELS.filter((x) => x !== m)); /* افتكر الشغال */
+    return out;
+  }
+  return last;
 }
 
 module.exports = async (req, res) => {
